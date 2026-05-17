@@ -1,4 +1,4 @@
-//go:build goproducttype_generate
+//go:build adtgen_generate
 
 package resolvepkgsumexternal
 
@@ -6,5 +6,5 @@ import "time"
 
 var _ time.Time
 
-//goproducttype:sum Hoge time.Time
+//adtgen:sum Hoge time.Time
 type HogeOrTime struct{}

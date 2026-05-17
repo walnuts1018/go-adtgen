@@ -1,6 +1,6 @@
-//go:build goproducttype_generate
+//go:build adtgen_generate
 
 package resolvepkgsumalias
 
-//goproducttype:sum AliasHoge Fuga
+//adtgen:sum AliasHoge Fuga
 type AliasOrFuga struct{}

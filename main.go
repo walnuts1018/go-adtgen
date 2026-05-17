@@ -80,5 +80,5 @@ func outputPath(pkg *loader.Package) (string, error) {
 		return "", fmt.Errorf("generator: could not determine package directory")
 	}
 
-	return filepath.Join(filepath.Dir(filename), "zz_generated.product_types.go"), nil
+	return filepath.Join(filepath.Dir(filename), "zz_generated.adtgen.go"), nil
 }

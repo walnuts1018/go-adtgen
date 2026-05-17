@@ -1,4 +1,4 @@
-//go:build goproducttype_generate
+//go:build adtgen_generate
 
 package loadgeneratepackage
 

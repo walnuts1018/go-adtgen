@@ -9,7 +9,7 @@ import (
 
 func TestGoGenerateProducesExpectedOutput(t *testing.T) {
 	dir := filepath.Join("..", "testdata", "fixtures", "e2e", "base")
-	outputPath := filepath.Join(dir, "zz_generated.product_types.go")
+	outputPath := filepath.Join(dir, "zz_generated.adtgen.go")
 	_ = os.Remove(outputPath)
 
 	cmd := exec.Command("go", "generate", ".")
@@ -49,7 +49,7 @@ func TestGeneratedFixtureAPIsBuildAndRun(t *testing.T) {
 
 func TestGoGenerateBuildsAndExercisesSumFixture(t *testing.T) {
 	dir := filepath.Join("..", "testdata", "fixtures", "e2e", "sum")
-	outputPath := filepath.Join(dir, "zz_generated.product_types.go")
+	outputPath := filepath.Join(dir, "zz_generated.adtgen.go")
 	_ = os.Remove(outputPath)
 
 	cmd := exec.Command("go", "generate", ".")

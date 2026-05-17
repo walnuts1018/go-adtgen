@@ -37,7 +37,7 @@ func LoadGeneratePackage(cfg Config) (*Package, error) {
 			packages.NeedSyntax |
 			packages.NeedTypes |
 			packages.NeedTypesInfo,
-		BuildFlags: []string{"-tags=goproducttype_generate"},
+		BuildFlags: []string{"-tags=adtgen_generate"},
 	}, cfg.Pattern)
 	if err != nil {
 		return nil, err

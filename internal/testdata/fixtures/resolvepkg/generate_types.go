@@ -1,4 +1,4 @@
-//go:build goproducttype_generate
+//go:build adtgen_generate
 
 package resolvepkg
 
@@ -6,17 +6,17 @@ import timex "time"
 
 type LocalTime = timex.Time
 
-//goproducttype:product Customer Address
+//adtgen:product Customer Address
 type CustomerAddress struct{}
 
-//goproducttype:product Customer Envelope[string]
+//adtgen:product Customer Envelope[string]
 type CustomerEnvelope struct{}
 
-//goproducttype:product Customer timex.Time
+//adtgen:product Customer timex.Time
 type CustomerTime struct{}
 
-//goproducttype:product Customer LocalTime
+//adtgen:product Customer LocalTime
 type CustomerLocalTime struct{}
 
-//goproducttype:product Customer Envelope[T]
+//adtgen:product Customer Envelope[T]
 type CustomerEnvelopeForTypeParam[T any] struct{}

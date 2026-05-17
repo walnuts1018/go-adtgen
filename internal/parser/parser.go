@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	productDirective = "goproducttype:product"
-	sumDirective     = "goproducttype:sum"
+	productDirective = "adtgen:product"
+	sumDirective     = "adtgen:sum"
 )
 
 func CollectDeclarations(fset *token.FileSet, files []*ast.File) ([]model.Declaration, error) {

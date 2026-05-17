@@ -13,7 +13,7 @@ import (
 func TestCollectDeclarationsFindsProductAnnotation(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
-//goproducttype:product A B
+//adtgen:product A B
 type AB struct{}
 `, parser.ParseComments)
 	if err != nil {
@@ -41,7 +41,7 @@ type AB struct{}
 func TestCollectDeclarationsFindsSumAnnotation(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
-//goproducttype:sum Hoge Fuga
+//adtgen:sum Hoge Fuga
 type HogeOrFuga struct{}
 `, parser.ParseComments)
 	if err != nil {
@@ -70,7 +70,7 @@ func TestCollectDeclarationsFindsTypeSpecAnnotationInGroupedTypeDeclaration(t *t
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
 type (
-	//goproducttype:product A B
+	//adtgen:product A B
 	AB struct{}
 )
 `, parser.ParseComments)
@@ -97,7 +97,7 @@ func TestCollectDeclarationsIgnoresUnannotatedDeclarationsInGroupedTypeDeclarati
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
 type (
-	//goproducttype:product A B
+	//adtgen:product A B
 	AB struct{}
 	CD struct{}
 )
@@ -121,7 +121,7 @@ type (
 func TestCollectDeclarationsRejectsAnnotatedTypeAliasDeclarations(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
-//goproducttype:product A B
+//adtgen:product A B
 type AB = struct{}
 `, parser.ParseComments)
 	if err != nil {
@@ -143,7 +143,7 @@ type AB = struct{}
 func TestCollectDeclarationsIgnoresSimilarDirectivePrefixes(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
-//goproducttype:productivity A B
+//adtgen:productivity A B
 type AB struct{}
 `, parser.ParseComments)
 	if err != nil {
@@ -161,7 +161,7 @@ type AB struct{}
 
 func TestCollectDeclarationsParsesWhitespaceTolerantDirective(t *testing.T) {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "sample.go", "package sample\n//goproducttype:product\t  A B\ntype AB struct{}\n", parser.ParseComments)
+	file, err := parser.ParseFile(fset, "sample.go", "package sample\n//adtgen:product\t  A B\ntype AB struct{}\n", parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}

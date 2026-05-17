@@ -1,6 +1,6 @@
-//go:build goproducttype_generate
+//go:build adtgen_generate
 
 package resolvepkgsumvalid
 
-//goproducttype:sum Hoge Fuga
+//adtgen:sum Hoge Fuga
 type HogeOrFuga struct{}
