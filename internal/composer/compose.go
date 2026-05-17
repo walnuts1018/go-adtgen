@@ -3,6 +3,7 @@ package composer
 import (
 	"fmt"
 	"go/types"
+	"sort"
 
 	"github.com/walnuts1018/go-product-type/internal/model"
 )
@@ -69,6 +70,14 @@ func ComposeFields(groups [][]FieldSpec) ([]FieldSpec, error) {
 }
 
 func BuildGeneratedType(declaration model.ResolvedDeclaration) (model.GeneratedType, error) {
+	if declarationKind(declaration.Declaration) == model.DeclarationKindSum {
+		return buildSumGeneratedType(declaration)
+	}
+
+	return buildProductGeneratedType(declaration)
+}
+
+func buildProductGeneratedType(declaration model.ResolvedDeclaration) (model.GeneratedType, error) {
 	groups := make([][]FieldSpec, 0, len(declaration.Inputs))
 	for _, input := range declaration.Inputs {
 		groups = append(groups, ExtractFields(input.Struct))
@@ -80,6 +89,7 @@ func BuildGeneratedType(declaration model.ResolvedDeclaration) (model.GeneratedT
 	}
 
 	generated := model.GeneratedType{
+		Kind:           model.DeclarationKindProduct,
 		Name:           declaration.Declaration.Name,
 		TypeParameters: append([]string(nil), declaration.Declaration.TypeParameters...),
 		Fields:         make([]model.GeneratedField, 0, len(fields)),
@@ -96,6 +106,42 @@ func BuildGeneratedType(declaration model.ResolvedDeclaration) (model.GeneratedT
 	return generated, nil
 }
 
+func buildSumGeneratedType(declaration model.ResolvedDeclaration) (model.GeneratedType, error) {
+	variants := make([]model.GeneratedSumVariant, 0, len(declaration.Inputs))
+	fieldSets := make([]map[string]accessibleField, 0, len(declaration.Inputs))
+	fieldOrders := make([][]string, 0, len(declaration.Inputs))
+
+	for _, input := range declaration.Inputs {
+		variants = append(variants, model.GeneratedSumVariant{
+			Expression: input.Expr,
+			Type:       input.Type,
+			TypeName:   inputTypeName(input.Type),
+		})
+
+		fields, order, err := collectAccessibleFields(input.Type, input.Struct)
+		if err != nil {
+			return model.GeneratedType{}, err
+		}
+		fieldSets = append(fieldSets, fields)
+		fieldOrders = append(fieldOrders, order)
+	}
+
+	commonFields, err := buildCommonFields(variants, fieldSets, fieldOrders)
+	if err != nil {
+		return model.GeneratedType{}, err
+	}
+
+	return model.GeneratedType{
+		Kind:           model.DeclarationKindSum,
+		Name:           declaration.Declaration.Name,
+		TypeParameters: append([]string(nil), declaration.Declaration.TypeParameters...),
+		Sum: &model.GeneratedSum{
+			Variants:     variants,
+			CommonFields: commonFields,
+		},
+	}, nil
+}
+
 func findComposedField(fields []FieldSpec, target FieldSpec) int {
 	for i, field := range fields {
 		if field.Name == target.Name {
@@ -103,4 +149,156 @@ func findComposedField(fields []FieldSpec, target FieldSpec) int {
 		}
 	}
 	return -1
+}
+
+func declarationKind(declaration model.Declaration) model.DeclarationKind {
+	if declaration.Kind == "" {
+		return model.DeclarationKindProduct
+	}
+	return declaration.Kind
+}
+
+type accessibleField struct {
+	Name string
+	Type types.Type
+	Path []string
+}
+
+type structLevel struct {
+	Struct *types.Struct
+	Path   []string
+}
+
+func collectAccessibleFields(typ types.Type, st *types.Struct) (map[string]accessibleField, []string, error) {
+	if st == nil {
+		return nil, nil, nil
+	}
+
+	fields := make(map[string]accessibleField)
+	order := make([]string, 0)
+	current := []structLevel{{Struct: st}}
+
+	for len(current) > 0 {
+		next := make([]structLevel, 0)
+		levelCandidates := make(map[string][]accessibleField)
+
+		for _, level := range current {
+			for i := 0; i < level.Struct.NumFields(); i++ {
+				field := level.Struct.Field(i)
+				path := appendPath(level.Path, field.Name())
+				if !field.Embedded() {
+					levelCandidates[field.Name()] = append(levelCandidates[field.Name()], accessibleField{
+						Name: field.Name(),
+						Type: field.Type(),
+						Path: path,
+					})
+				}
+
+				if !field.Embedded() {
+					continue
+				}
+				embeddedStruct, ok := embeddedStructType(field.Type())
+				if !ok {
+					continue
+				}
+				next = append(next, structLevel{
+					Struct: embeddedStruct,
+					Path:   path,
+				})
+			}
+		}
+
+		names := make([]string, 0, len(levelCandidates))
+		for name := range levelCandidates {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+
+		for _, name := range names {
+			if _, seen := fields[name]; seen {
+				continue
+			}
+			candidates := levelCandidates[name]
+			if len(candidates) > 1 {
+				return nil, nil, fmt.Errorf("composer: ambiguous promoted field %s in %s", name, inputTypeName(typ))
+			}
+			fields[name] = candidates[0]
+			order = append(order, name)
+		}
+
+		current = next
+	}
+
+	return fields, order, nil
+}
+
+func embeddedStructType(typ types.Type) (*types.Struct, bool) {
+	switch t := types.Unalias(typ).(type) {
+	case *types.Named:
+		st, ok := t.Underlying().(*types.Struct)
+		return st, ok
+	case *types.Pointer:
+		named, ok := types.Unalias(t.Elem()).(*types.Named)
+		if !ok {
+			return nil, false
+		}
+		st, ok := named.Underlying().(*types.Struct)
+		return st, ok
+	default:
+		return nil, false
+	}
+}
+
+func buildCommonFields(variants []model.GeneratedSumVariant, fieldSets []map[string]accessibleField, fieldOrders [][]string) ([]model.GeneratedCommonField, error) {
+	if len(variants) == 0 {
+		return nil, nil
+	}
+
+	common := make([]model.GeneratedCommonField, 0)
+	for _, name := range fieldOrders[0] {
+		first := fieldSets[0][name]
+		paths := make([][]string, 0, len(fieldSets))
+		paths = append(paths, append([]string(nil), first.Path...))
+
+		include := true
+		for i := 1; i < len(fieldSets); i++ {
+			field, ok := fieldSets[i][name]
+			if !ok {
+				include = false
+				break
+			}
+			if !types.Identical(first.Type, field.Type) {
+				return nil, fmt.Errorf("composer: conflicting common field %s", name)
+			}
+			paths = append(paths, append([]string(nil), field.Path...))
+		}
+		if !include {
+			continue
+		}
+
+		common = append(common, model.GeneratedCommonField{
+			Name:       name,
+			Type:       first.Type,
+			GetterName: "Get" + name,
+			SetterName: "Set" + name,
+			Paths:      paths,
+		})
+	}
+
+	return common, nil
+}
+
+func appendPath(base []string, name string) []string {
+	path := make([]string, 0, len(base)+1)
+	path = append(path, base...)
+	path = append(path, name)
+	return path
+}
+
+func inputTypeName(typ types.Type) string {
+	named, ok := types.Unalias(typ).(*types.Named)
+	if !ok || named.Obj() == nil {
+		return types.TypeString(typ, nil)
+	}
+	return named.Obj().Name()
 }

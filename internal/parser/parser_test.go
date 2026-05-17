@@ -6,6 +6,8 @@ import (
 	"go/token"
 	"strings"
 	"testing"
+
+	"github.com/walnuts1018/go-product-type/internal/model"
 )
 
 func TestCollectDeclarationsFindsProductAnnotation(t *testing.T) {
@@ -30,6 +32,37 @@ type AB struct{}
 	}
 	if decls[0].Expression != "A B" {
 		t.Fatalf("got %q, want %q", decls[0].Expression, "A B")
+	}
+	if decls[0].Kind != model.DeclarationKindProduct {
+		t.Fatalf("got kind %q, want %q", decls[0].Kind, model.DeclarationKindProduct)
+	}
+}
+
+func TestCollectDeclarationsFindsSumAnnotation(t *testing.T) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "sample.go", `package sample
+//goproducttype:sum Hoge Fuga
+type HogeOrFuga struct{}
+`, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decls, err := CollectDeclarations(fset, []*ast.File{file})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(decls) != 1 {
+		t.Fatalf("got %d declarations, want 1", len(decls))
+	}
+	if decls[0].Kind != model.DeclarationKindSum {
+		t.Fatalf("got kind %q, want %q", decls[0].Kind, model.DeclarationKindSum)
+	}
+	if decls[0].Name != "HogeOrFuga" {
+		t.Fatalf("got %q, want %q", decls[0].Name, "HogeOrFuga")
+	}
+	if decls[0].Expression != "Hoge Fuga" {
+		t.Fatalf("got %q, want %q", decls[0].Expression, "Hoge Fuga")
 	}
 }
 

@@ -59,6 +59,11 @@ func ResolveDeclarations(pkg *loader.Package, declarations []model.Declaration) 
 			if err != nil {
 				return nil, fmt.Errorf("%s: resolve %q: %w", declaration.Position, inputExpr, err)
 			}
+			if declaration.Kind == model.DeclarationKindSum {
+				if err := validateSumInputType(pkg.Package.Types, input); err != nil {
+					return nil, fmt.Errorf("%s: resolve %q: %w", declaration.Position, inputExpr, err)
+				}
+			}
 			inputs = append(inputs, input)
 		}
 
@@ -69,6 +74,21 @@ func ResolveDeclarations(pkg *loader.Package, declarations []model.Declaration) 
 	}
 
 	return resolved, nil
+}
+
+func validateSumInputType(pkg *types.Package, input model.ResolvedType) error {
+	if _, ok := input.Type.(*types.Alias); ok {
+		return fmt.Errorf("sum inputs must be defined types, not aliases")
+	}
+
+	named, ok := types.Unalias(input.Type).(*types.Named)
+	if !ok || named.Obj() == nil || named.Obj().Pkg() == nil {
+		return fmt.Errorf("sum inputs must be defined in the same package")
+	}
+	if pkg == nil || named.Obj().Pkg().Path() != pkg.Path() {
+		return fmt.Errorf("sum inputs must be defined in the same package")
+	}
+	return nil
 }
 
 func resolveTypeInPackage(fset *token.FileSet, pkg *types.Package, expr string) (model.ResolvedType, error) {

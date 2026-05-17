@@ -102,3 +102,135 @@ func TestBuildGeneratedTypePreservesTypeParametersAndComposedFields(t *testing.T
 		t.Fatalf("generated.Fields[2].Type = %v, want string", generated.Fields[2].Type)
 	}
 }
+
+func TestBuildGeneratedTypeBuildsSumMetadataFromEmbeddedCommonFields(t *testing.T) {
+	pkg := types.NewPackage("example.com/sample", "sample")
+	commonType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Common", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+	hogeType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Hoge", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "Common", commonType, true),
+			types.NewField(token.NoPos, pkg, "Name", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+	fugaType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Fuga", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "Common", commonType, true),
+			types.NewField(token.NoPos, pkg, "Age", types.Typ[types.Int], false),
+		}, nil),
+		nil,
+	)
+
+	decl := model.ResolvedDeclaration{
+		Declaration: model.Declaration{
+			Kind: model.DeclarationKindSum,
+			Name: "HogeOrFuga",
+		},
+		Inputs: []model.ResolvedType{
+			{Expr: "Hoge", Type: hogeType, Struct: hogeType.Underlying().(*types.Struct)},
+			{Expr: "Fuga", Type: fugaType, Struct: fugaType.Underlying().(*types.Struct)},
+		},
+	}
+
+	generated, err := BuildGeneratedType(decl)
+	if err != nil {
+		t.Fatalf("BuildGeneratedType() error = %v", err)
+	}
+	if generated.Kind != model.DeclarationKindSum {
+		t.Fatalf("generated.Kind = %q, want %q", generated.Kind, model.DeclarationKindSum)
+	}
+	if generated.Sum == nil {
+		t.Fatal("generated.Sum = nil")
+	}
+	if len(generated.Sum.Variants) != 2 {
+		t.Fatalf("len(generated.Sum.Variants) = %d, want 2", len(generated.Sum.Variants))
+	}
+	if generated.Sum.Variants[0].TypeName != "Hoge" {
+		t.Fatalf("generated.Sum.Variants[0].TypeName = %q, want %q", generated.Sum.Variants[0].TypeName, "Hoge")
+	}
+	if generated.Sum.Variants[1].TypeName != "Fuga" {
+		t.Fatalf("generated.Sum.Variants[1].TypeName = %q, want %q", generated.Sum.Variants[1].TypeName, "Fuga")
+	}
+	if len(generated.Sum.CommonFields) != 1 {
+		t.Fatalf("len(generated.Sum.CommonFields) = %d, want 1", len(generated.Sum.CommonFields))
+	}
+	field := generated.Sum.CommonFields[0]
+	if field.Name != "ID" {
+		t.Fatalf("field.Name = %q, want %q", field.Name, "ID")
+	}
+	if field.GetterName != "GetID" {
+		t.Fatalf("field.GetterName = %q, want %q", field.GetterName, "GetID")
+	}
+	if field.SetterName != "SetID" {
+		t.Fatalf("field.SetterName = %q, want %q", field.SetterName, "SetID")
+	}
+	if len(field.Paths) != 2 {
+		t.Fatalf("len(field.Paths) = %d, want 2", len(field.Paths))
+	}
+	if got := field.Paths[0]; len(got) != 2 || got[0] != "Common" || got[1] != "ID" {
+		t.Fatalf("field.Paths[0] = %v, want [Common ID]", got)
+	}
+	if got := field.Paths[1]; len(got) != 2 || got[0] != "Common" || got[1] != "ID" {
+		t.Fatalf("field.Paths[1] = %v, want [Common ID]", got)
+	}
+}
+
+func TestBuildGeneratedTypeRejectsAmbiguousPromotedCommonFields(t *testing.T) {
+	pkg := types.NewPackage("example.com/sample", "sample")
+	leftType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Left", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+	rightType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Right", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+	hogeType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Hoge", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "Left", leftType, true),
+			types.NewField(token.NoPos, pkg, "Right", rightType, true),
+		}, nil),
+		nil,
+	)
+	fugaType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Fuga", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+
+	decl := model.ResolvedDeclaration{
+		Declaration: model.Declaration{
+			Kind: model.DeclarationKindSum,
+			Name: "HogeOrFuga",
+		},
+		Inputs: []model.ResolvedType{
+			{Expr: "Hoge", Type: hogeType, Struct: hogeType.Underlying().(*types.Struct)},
+			{Expr: "Fuga", Type: fugaType, Struct: fugaType.Underlying().(*types.Struct)},
+		},
+	}
+
+	_, err := BuildGeneratedType(decl)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if got := err.Error(); got != "composer: ambiguous promoted field ID in Hoge" {
+		t.Fatalf("BuildGeneratedType() error = %q, want %q", got, "composer: ambiguous promoted field ID in Hoge")
+	}
+}

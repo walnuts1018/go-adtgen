@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/walnuts1018/go-product-type/internal/loader"
+	"github.com/walnuts1018/go-product-type/internal/model"
 	"github.com/walnuts1018/go-product-type/internal/parser"
 )
 
@@ -288,5 +289,84 @@ func TestResolveDeclarationsResolvesLoadedPackageDeclarations(t *testing.T) {
 	}
 	if got := types.TypeString(typeParam.Inputs[1].Struct.Field(0).Type(), nil); got != "T" {
 		t.Fatalf("got type parameter field type %q, want %q", got, "T")
+	}
+}
+
+func TestResolveDeclarationsResolvesSamePackageSumTypes(t *testing.T) {
+	pkg, err := loader.LoadGeneratePackage(loader.Config{
+		Pattern: filepath.Join("..", "testdata", "fixtures", "resolvepkgsumvalid"),
+	})
+	if err != nil {
+		t.Fatalf("LoadGeneratePackage returned error: %v", err)
+	}
+
+	decls, err := parser.CollectDeclarations(pkg.Fset, pkg.SyntaxFiles())
+	if err != nil {
+		t.Fatalf("CollectDeclarations returned error: %v", err)
+	}
+
+	resolved, err := ResolveDeclarations(pkg, decls)
+	if err != nil {
+		t.Fatalf("ResolveDeclarations returned error: %v", err)
+	}
+
+	if len(resolved) != 1 {
+		t.Fatalf("got %d resolved declarations, want 1", len(resolved))
+	}
+	if resolved[0].Declaration.Kind != model.DeclarationKindSum {
+		t.Fatalf("got kind %q, want %q", resolved[0].Declaration.Kind, model.DeclarationKindSum)
+	}
+	if len(resolved[0].Inputs) != 2 {
+		t.Fatalf("got %d inputs, want 2", len(resolved[0].Inputs))
+	}
+	if resolved[0].Inputs[0].Expr != "Hoge" {
+		t.Fatalf("got first expr %q, want %q", resolved[0].Inputs[0].Expr, "Hoge")
+	}
+	if resolved[0].Inputs[1].Expr != "Fuga" {
+		t.Fatalf("got second expr %q, want %q", resolved[0].Inputs[1].Expr, "Fuga")
+	}
+}
+
+func TestResolveDeclarationsRejectsSumTypesFromExternalPackage(t *testing.T) {
+	pkg, err := loader.LoadGeneratePackage(loader.Config{
+		Pattern: filepath.Join("..", "testdata", "fixtures", "resolvepkgsumexternal"),
+	})
+	if err != nil {
+		t.Fatalf("LoadGeneratePackage returned error: %v", err)
+	}
+
+	decls, err := parser.CollectDeclarations(pkg.Fset, pkg.SyntaxFiles())
+	if err != nil {
+		t.Fatalf("CollectDeclarations returned error: %v", err)
+	}
+
+	_, err = ResolveDeclarations(pkg, decls)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "sum inputs must be defined in the same package") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestResolveDeclarationsRejectsSumAliasInputs(t *testing.T) {
+	pkg, err := loader.LoadGeneratePackage(loader.Config{
+		Pattern: filepath.Join("..", "testdata", "fixtures", "resolvepkgsumalias"),
+	})
+	if err != nil {
+		t.Fatalf("LoadGeneratePackage returned error: %v", err)
+	}
+
+	decls, err := parser.CollectDeclarations(pkg.Fset, pkg.SyntaxFiles())
+	if err != nil {
+		t.Fatalf("CollectDeclarations returned error: %v", err)
+	}
+
+	_, err = ResolveDeclarations(pkg, decls)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "sum inputs must be defined types, not aliases") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

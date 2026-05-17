@@ -11,7 +11,10 @@ import (
 	"github.com/walnuts1018/go-product-type/internal/model"
 )
 
-const productDirective = "goproducttype:product"
+const (
+	productDirective = "goproducttype:product"
+	sumDirective     = "goproducttype:sum"
+)
 
 func CollectDeclarations(fset *token.FileSet, files []*ast.File) ([]model.Declaration, error) {
 	var declarations []model.Declaration
@@ -28,7 +31,7 @@ func CollectDeclarations(fset *token.FileSet, files []*ast.File) ([]model.Declar
 				if !ok {
 					continue
 				}
-				expression, ok := productExpressionForTypeSpec(genDecl, typeSpec)
+				kind, expression, ok := declarationSpecForTypeSpec(genDecl, typeSpec)
 				if !ok {
 					continue
 				}
@@ -43,6 +46,7 @@ func CollectDeclarations(fset *token.FileSet, files []*ast.File) ([]model.Declar
 				}
 
 				declarations = append(declarations, model.Declaration{
+					Kind:           kind,
 					Name:           typeSpec.Name.Name,
 					Expression:     expression,
 					TypeParameters: collectTypeParameters(fset, typeSpec.TypeParams),
@@ -55,22 +59,22 @@ func CollectDeclarations(fset *token.FileSet, files []*ast.File) ([]model.Declar
 	return declarations, nil
 }
 
-func productExpressionForTypeSpec(genDecl *ast.GenDecl, typeSpec *ast.TypeSpec) (string, bool) {
-	if expression, ok := findProductExpression(typeSpec.Doc); ok {
-		return expression, true
+func declarationSpecForTypeSpec(genDecl *ast.GenDecl, typeSpec *ast.TypeSpec) (model.DeclarationKind, string, bool) {
+	if kind, expression, ok := findDeclarationSpec(typeSpec.Doc); ok {
+		return kind, expression, true
 	}
-	if expression, ok := findProductExpression(typeSpec.Comment); ok {
-		return expression, true
+	if kind, expression, ok := findDeclarationSpec(typeSpec.Comment); ok {
+		return kind, expression, true
 	}
 	if len(genDecl.Specs) == 1 {
-		return findProductExpression(genDecl.Doc)
+		return findDeclarationSpec(genDecl.Doc)
 	}
-	return "", false
+	return "", "", false
 }
 
-func findProductExpression(group *ast.CommentGroup) (string, bool) {
+func findDeclarationSpec(group *ast.CommentGroup) (model.DeclarationKind, string, bool) {
 	if group == nil {
-		return "", false
+		return "", "", false
 	}
 
 	for _, comment := range group.List {
@@ -80,14 +84,20 @@ func findProductExpression(group *ast.CommentGroup) (string, bool) {
 			continue
 		}
 		directive := fields[0]
-		if directive != productDirective {
+		var kind model.DeclarationKind
+		switch directive {
+		case productDirective:
+			kind = model.DeclarationKindProduct
+		case sumDirective:
+			kind = model.DeclarationKindSum
+		default:
 			continue
 		}
 		expression := strings.TrimSpace(strings.TrimPrefix(text, directive))
-		return expression, true
+		return kind, expression, true
 	}
 
-	return "", false
+	return "", "", false
 }
 
 func collectTypeParameters(fset *token.FileSet, fieldList *ast.FieldList) []string {

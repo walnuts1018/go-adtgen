@@ -46,29 +46,12 @@ func RenderForPackage(pkgPath string, pkgName string, generated []model.Generate
 			buf.WriteString("\n")
 		}
 
-		buf.WriteString("type ")
-		buf.WriteString(generatedType.Name)
-		if len(generatedType.TypeParameters) > 0 {
-			buf.WriteString("[")
-			buf.WriteString(strings.Join(generatedType.TypeParameters, ", "))
-			buf.WriteString("]")
-		}
-		buf.WriteString(" struct {\n")
-
-		for _, field := range generatedType.Fields {
-			buf.WriteString("\t")
-			if !field.Anonymous {
-				buf.WriteString(field.Name)
-				buf.WriteString(" ")
-			}
-			buf.WriteString(types.TypeString(field.Type, qualifier))
-			if field.Tag != "" {
-				buf.WriteString(fmt.Sprintf(" `%s`", field.Tag))
-			}
-			buf.WriteString("\n")
+		if generatedType.Kind == model.DeclarationKindSum && generatedType.Sum != nil {
+			renderSumType(&buf, generatedType, qualifier)
+			continue
 		}
 
-		buf.WriteString("}\n")
+		renderProductType(&buf, generatedType, qualifier)
 	}
 
 	formatted, err := format.Source(buf.Bytes())
@@ -83,6 +66,19 @@ func collectImports(pkgName string, generated []model.GeneratedType) []string {
 	seen := make(map[string]struct{})
 
 	for _, generatedType := range generated {
+		if generatedType.Kind == model.DeclarationKindSum && generatedType.Sum != nil {
+			seen["bytes"] = struct{}{}
+			seen["encoding/json"] = struct{}{}
+			seen["fmt"] = struct{}{}
+			seen["io"] = struct{}{}
+			for _, variant := range generatedType.Sum.Variants {
+				collectTypeImports(pkgName, variant.Type, seen)
+			}
+			for _, field := range generatedType.Sum.CommonFields {
+				collectTypeImports(pkgName, field.Type, seen)
+			}
+			continue
+		}
 		for _, field := range generatedType.Fields {
 			collectTypeImports(pkgName, field.Type, seen)
 		}
@@ -161,4 +157,229 @@ func collectTupleImports(pkgPath string, tuple *types.Tuple, seen map[string]str
 	for i := 0; i < tuple.Len(); i++ {
 		collectTypeImports(pkgPath, tuple.At(i).Type(), seen)
 	}
+}
+
+func renderProductType(buf *bytes.Buffer, generatedType model.GeneratedType, qualifier types.Qualifier) {
+	buf.WriteString("type ")
+	buf.WriteString(generatedType.Name)
+	if len(generatedType.TypeParameters) > 0 {
+		buf.WriteString("[")
+		buf.WriteString(strings.Join(generatedType.TypeParameters, ", "))
+		buf.WriteString("]")
+	}
+	buf.WriteString(" struct {\n")
+
+	for _, field := range generatedType.Fields {
+		buf.WriteString("\t")
+		if !field.Anonymous {
+			buf.WriteString(field.Name)
+			buf.WriteString(" ")
+		}
+		buf.WriteString(types.TypeString(field.Type, qualifier))
+		if field.Tag != "" {
+			buf.WriteString(fmt.Sprintf(" `%s`", field.Tag))
+		}
+		buf.WriteString("\n")
+	}
+
+	buf.WriteString("}\n")
+}
+
+func renderSumType(buf *bytes.Buffer, generatedType model.GeneratedType, qualifier types.Qualifier) {
+	buf.WriteString("type ")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString(" interface {\n")
+	buf.WriteString("\tis")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString("()\n")
+	for _, variant := range generatedType.Sum.Variants {
+		buf.WriteString("\tAs")
+		buf.WriteString(variant.TypeName)
+		buf.WriteString("() (")
+		buf.WriteString(types.TypeString(variant.Type, qualifier))
+		buf.WriteString(", bool)\n")
+	}
+	for _, field := range generatedType.Sum.CommonFields {
+		buf.WriteString("\t")
+		buf.WriteString(field.GetterName)
+		buf.WriteString("() ")
+		buf.WriteString(types.TypeString(field.Type, qualifier))
+		buf.WriteString("\n")
+		buf.WriteString("\t")
+		buf.WriteString(field.SetterName)
+		buf.WriteString("(")
+		buf.WriteString(types.TypeString(field.Type, qualifier))
+		buf.WriteString(")\n")
+	}
+	buf.WriteString("}\n\n")
+
+	for _, variant := range generatedType.Sum.Variants {
+		renderSumVariantMethods(buf, generatedType, variant, qualifier)
+		buf.WriteString("\n")
+	}
+
+	renderSumMatchFunctions(buf, generatedType, qualifier)
+	buf.WriteString("\n")
+	renderSumUnmarshalFunction(buf, generatedType, qualifier)
+}
+
+func renderSumVariantMethods(buf *bytes.Buffer, generatedType model.GeneratedType, variant model.GeneratedSumVariant, qualifier types.Qualifier) {
+	receiverType := "*" + types.TypeString(variant.Type, qualifier)
+	valueType := types.TypeString(variant.Type, qualifier)
+
+	buf.WriteString("func (")
+	buf.WriteString(receiverType)
+	buf.WriteString(") is")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString("() {}\n\n")
+
+	for _, target := range generatedType.Sum.Variants {
+		buf.WriteString("func (x ")
+		buf.WriteString(receiverType)
+		buf.WriteString(") As")
+		buf.WriteString(target.TypeName)
+		buf.WriteString("() (")
+		buf.WriteString(types.TypeString(target.Type, qualifier))
+		buf.WriteString(", bool) {\n")
+		buf.WriteString("\tif x == nil {\n")
+		buf.WriteString("\t\tvar zero ")
+		buf.WriteString(types.TypeString(target.Type, qualifier))
+		buf.WriteString("\n\t\treturn zero, false\n\t}\n")
+		if target.TypeName == variant.TypeName {
+			buf.WriteString("\treturn *x, true\n")
+		} else {
+			buf.WriteString("\tvar zero ")
+			buf.WriteString(types.TypeString(target.Type, qualifier))
+			buf.WriteString("\n\t\treturn zero, false\n")
+		}
+		buf.WriteString("}\n\n")
+	}
+
+	index := variantIndex(generatedType.Sum.Variants, variant.TypeName)
+	for _, field := range generatedType.Sum.CommonFields {
+		path := selectorPath("x", field.Paths[index])
+
+		buf.WriteString("func (x ")
+		buf.WriteString(receiverType)
+		buf.WriteString(") ")
+		buf.WriteString(field.GetterName)
+		buf.WriteString("() ")
+		buf.WriteString(types.TypeString(field.Type, qualifier))
+		buf.WriteString(" {\n\treturn ")
+		buf.WriteString(path)
+		buf.WriteString("\n}\n\n")
+
+		buf.WriteString("func (x ")
+		buf.WriteString(receiverType)
+		buf.WriteString(") ")
+		buf.WriteString(field.SetterName)
+		buf.WriteString("(v ")
+		buf.WriteString(types.TypeString(field.Type, qualifier))
+		buf.WriteString(") {\n\t")
+		buf.WriteString(path)
+		buf.WriteString(" = v\n}\n\n")
+	}
+
+	_ = valueType
+}
+
+func renderSumMatchFunctions(buf *bytes.Buffer, generatedType model.GeneratedType, qualifier types.Qualifier) {
+	buf.WriteString("func Match")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString("[T any](v ")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString(", ")
+	for i, variant := range generatedType.Sum.Variants {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString("when")
+		buf.WriteString(variant.TypeName)
+		buf.WriteString(" func(")
+		buf.WriteString(types.TypeString(variant.Type, qualifier))
+		buf.WriteString(") T")
+	}
+	buf.WriteString(") T {\n\tswitch x := v.(type) {\n")
+	for _, variant := range generatedType.Sum.Variants {
+		buf.WriteString("\tcase *")
+		buf.WriteString(types.TypeString(variant.Type, qualifier))
+		buf.WriteString(":\n\t\treturn when")
+		buf.WriteString(variant.TypeName)
+		buf.WriteString("(*x)\n")
+	}
+	buf.WriteString("\tdefault:\n\t\tpanic(\"unreachable generated match for ")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString("\")\n\t}\n}\n\n")
+
+	buf.WriteString("func Match")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString("2[S, T any](v ")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString(", ")
+	for i, variant := range generatedType.Sum.Variants {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString("when")
+		buf.WriteString(variant.TypeName)
+		buf.WriteString(" func(")
+		buf.WriteString(types.TypeString(variant.Type, qualifier))
+		buf.WriteString(") (S, T)")
+	}
+	buf.WriteString(") (S, T) {\n\tswitch x := v.(type) {\n")
+	for _, variant := range generatedType.Sum.Variants {
+		buf.WriteString("\tcase *")
+		buf.WriteString(types.TypeString(variant.Type, qualifier))
+		buf.WriteString(":\n\t\treturn when")
+		buf.WriteString(variant.TypeName)
+		buf.WriteString("(*x)\n")
+	}
+	buf.WriteString("\tdefault:\n\t\tpanic(\"unreachable generated match for ")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString("\")\n\t}\n}\n")
+}
+
+func renderSumUnmarshalFunction(buf *bytes.Buffer, generatedType model.GeneratedType, qualifier types.Qualifier) {
+	buf.WriteString("func Unmarshal")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString("(data []byte) (")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString(", error) {\n\tvar result ")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString("\n\tmatches := 0\n")
+
+	for _, variant := range generatedType.Sum.Variants {
+		typeString := types.TypeString(variant.Type, qualifier)
+		buf.WriteString("\t{\n\t\tvar candidate ")
+		buf.WriteString(typeString)
+		buf.WriteString("\n\t\tdecoder := json.NewDecoder(bytes.NewReader(data))\n\t\tdecoder.DisallowUnknownFields()\n")
+		buf.WriteString("\t\tif err := decoder.Decode(&candidate); err == nil {\n")
+		buf.WriteString("\t\t\tvar trailing struct{}\n")
+		buf.WriteString("\t\t\tif err := decoder.Decode(&trailing); err == io.EOF {\n")
+		buf.WriteString("\t\t\t\tmatches++\n\t\t\t\tresult = &candidate\n\t\t\t}\n\t\t}\n\t}\n")
+	}
+
+	buf.WriteString("\tif matches == 1 {\n\t\treturn result, nil\n\t}\n")
+	buf.WriteString("\tif matches == 0 {\n\t\treturn nil, fmt.Errorf(\"no variants of ")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString(" matched JSON\")\n\t}\n")
+	buf.WriteString("\treturn nil, fmt.Errorf(\"multiple variants of ")
+	buf.WriteString(generatedType.Name)
+	buf.WriteString(" matched JSON\")\n}\n")
+}
+
+func selectorPath(root string, path []string) string {
+	if len(path) == 0 {
+		return root
+	}
+	return root + "." + strings.Join(path, ".")
+}
+
+func variantIndex(variants []model.GeneratedSumVariant, typeName string) int {
+	for i, variant := range variants {
+		if variant.TypeName == typeName {
+			return i
+		}
+	}
+	return -1
 }

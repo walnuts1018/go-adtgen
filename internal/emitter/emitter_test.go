@@ -113,3 +113,73 @@ func TestRenderForPackageImportsExternalTypeWithSamePackageName(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderIncludesSumInterfaceMethodsAndHelpers(t *testing.T) {
+	pkg := types.NewPackage("example.com/sample", "sample")
+	hogeType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Hoge", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+	fugaType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Fuga", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+
+	src, err := RenderForPackage("example.com/sample", "sample", []model.GeneratedType{
+		{
+			Kind: model.DeclarationKindSum,
+			Name: "HogeOrFuga",
+			Sum: &model.GeneratedSum{
+				Variants: []model.GeneratedSumVariant{
+					{Expression: "Hoge", Type: hogeType, TypeName: "Hoge"},
+					{Expression: "Fuga", Type: fugaType, TypeName: "Fuga"},
+				},
+				CommonFields: []model.GeneratedCommonField{
+					{
+						Name:       "ID",
+						Type:       types.Typ[types.String],
+						GetterName: "GetID",
+						SetterName: "SetID",
+						Paths: [][]string{
+							{"ID"},
+							{"ID"},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("RenderForPackage() error = %v", err)
+	}
+
+	for _, want := range []string{
+		"import (\n\t\"bytes\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"io\"\n)",
+		"type HogeOrFuga interface {",
+		"isHogeOrFuga()",
+		"AsHoge() (Hoge, bool)",
+		"AsFuga() (Fuga, bool)",
+		"GetID() string",
+		"SetID(string)",
+		"func (*Hoge) isHogeOrFuga() {}",
+		"func (x *Hoge) AsHoge() (Hoge, bool) {",
+		"func (x *Hoge) AsFuga() (Fuga, bool) {",
+		"func (x *Hoge) GetID() string {",
+		"func (x *Hoge) SetID(v string) {",
+		"func MatchHogeOrFuga[T any](v HogeOrFuga, whenHoge func(Hoge) T, whenFuga func(Fuga) T) T {",
+		"func MatchHogeOrFuga2[S, T any](v HogeOrFuga, whenHoge func(Hoge) (S, T), whenFuga func(Fuga) (S, T)) (S, T) {",
+		"func UnmarshalHogeOrFuga(data []byte) (HogeOrFuga, error) {",
+		"decoder := json.NewDecoder(bytes.NewReader(data))",
+		"result = &candidate",
+	} {
+		if !strings.Contains(src, want) {
+			t.Fatalf("RenderForPackage() output missing %q:\n%s", want, src)
+		}
+	}
+}

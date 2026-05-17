@@ -38,3 +38,21 @@ func TestGeneratedFixtureBuilds(t *testing.T) {
 		t.Fatalf("fixture build failed: %v\n%s", err, out)
 	}
 }
+
+func TestGoGenerateBuildsAndExercisesSumFixture(t *testing.T) {
+	dir := filepath.Join("..", "testdata", "fixtures", "e2e", "sum")
+	outputPath := filepath.Join(dir, "zz_generated.product_types.go")
+	_ = os.Remove(outputPath)
+
+	cmd := exec.Command("go", "generate", ".")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go generate failed: %v\n%s", err, out)
+	}
+
+	cmd = exec.Command("go", "test", ".")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("sum fixture test failed: %v\n%s", err, out)
+	}
+}
