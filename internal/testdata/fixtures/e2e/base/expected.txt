@@ -7,3 +7,22 @@ type AB[T any] struct {
 	ID   T
 	Name string
 }
+
+func NewAB[T any](a A[T], b B) AB[T] {
+	return AB[T]{
+		ID:   a.ID,
+		Name: b.Name,
+	}
+}
+
+func (x AB[T]) ToA() A[T] {
+	return A[T]{
+		ID: x.ID,
+	}
+}
+
+func (x AB[T]) ToB() B {
+	return B{
+		Name: x.Name,
+	}
+}

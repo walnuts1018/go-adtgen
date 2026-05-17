@@ -79,6 +79,9 @@ func collectImports(pkgName string, generated []model.GeneratedType) []string {
 			}
 			continue
 		}
+		for _, input := range generatedType.Inputs {
+			collectTypeImports(pkgName, input.Type, seen)
+		}
 		for _, field := range generatedType.Fields {
 			collectTypeImports(pkgName, field.Type, seen)
 		}
@@ -183,6 +186,18 @@ func renderProductType(buf *bytes.Buffer, generatedType model.GeneratedType, qua
 	}
 
 	buf.WriteString("}\n")
+
+	if len(generatedType.Inputs) == 0 {
+		return
+	}
+
+	buf.WriteString("\n\n")
+	renderConstructor(buf, generatedType, qualifier)
+
+	for _, input := range generatedType.Inputs {
+		buf.WriteString("\n\n")
+		renderSplitMethod(buf, generatedType, input, qualifier)
+	}
 }
 
 func renderSumType(buf *bytes.Buffer, generatedType model.GeneratedType, qualifier types.Qualifier) {
@@ -373,6 +388,89 @@ func selectorPath(root string, path []string) string {
 		return root
 	}
 	return root + "." + strings.Join(path, ".")
+}
+
+func renderConstructor(buf *bytes.Buffer, generatedType model.GeneratedType, qualifier types.Qualifier) {
+	buf.WriteString("func New")
+	buf.WriteString(renderGeneratedTypeName(generatedType, true))
+	buf.WriteString("(")
+	for i, input := range generatedType.Inputs {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(input.ParameterName)
+		buf.WriteString(" ")
+		buf.WriteString(types.TypeString(input.Type, qualifier))
+	}
+	buf.WriteString(") ")
+	buf.WriteString(renderGeneratedTypeName(generatedType, false))
+	buf.WriteString(" {\n\treturn ")
+	buf.WriteString(renderGeneratedTypeName(generatedType, false))
+	buf.WriteString("{\n")
+
+	seen := make(map[string]struct{})
+	for _, input := range generatedType.Inputs {
+		for _, fieldName := range input.FieldNames {
+			if _, ok := seen[fieldName]; ok {
+				continue
+			}
+			seen[fieldName] = struct{}{}
+			buf.WriteString("\t\t")
+			buf.WriteString(fieldName)
+			buf.WriteString(": ")
+			buf.WriteString(input.ParameterName)
+			buf.WriteString(".")
+			buf.WriteString(fieldName)
+			buf.WriteString(",\n")
+		}
+	}
+
+	buf.WriteString("\t}\n}\n")
+}
+
+func renderSplitMethod(buf *bytes.Buffer, generatedType model.GeneratedType, input model.GeneratedInput, qualifier types.Qualifier) {
+	buf.WriteString("func (x ")
+	buf.WriteString(renderGeneratedTypeName(generatedType, false))
+	buf.WriteString(") ")
+	buf.WriteString(input.MethodName)
+	buf.WriteString("() ")
+	buf.WriteString(types.TypeString(input.Type, qualifier))
+	buf.WriteString(" {\n\treturn ")
+	buf.WriteString(types.TypeString(input.Type, qualifier))
+	buf.WriteString("{\n")
+	for _, fieldName := range input.FieldNames {
+		buf.WriteString("\t\t")
+		buf.WriteString(fieldName)
+		buf.WriteString(": x.")
+		buf.WriteString(fieldName)
+		buf.WriteString(",\n")
+	}
+	buf.WriteString("\t}\n}\n")
+}
+
+func renderGeneratedTypeName(generatedType model.GeneratedType, withConstraints bool) string {
+	if len(generatedType.TypeParameters) == 0 {
+		return generatedType.Name
+	}
+
+	params := generatedType.TypeParameters
+	if !withConstraints {
+		params = renderTypeParameterNames(generatedType.TypeParameters)
+	}
+
+	return generatedType.Name + "[" + strings.Join(params, ", ") + "]"
+}
+
+func renderTypeParameterNames(typeParameters []string) []string {
+	names := make([]string, 0, len(typeParameters))
+	for _, parameter := range typeParameters {
+		fields := strings.Fields(parameter)
+		if len(fields) == 0 {
+			continue
+		}
+		names = append(names, strings.TrimSuffix(fields[0], ","))
+	}
+	return names
 }
 
 func variantIndex(variants []model.GeneratedSumVariant, typeName string) int {

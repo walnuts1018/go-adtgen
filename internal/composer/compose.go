@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"go/types"
 	"sort"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/walnuts1018/go-product-type/internal/model"
 )
@@ -79,8 +82,18 @@ func BuildGeneratedType(declaration model.ResolvedDeclaration) (model.GeneratedT
 
 func buildProductGeneratedType(declaration model.ResolvedDeclaration) (model.GeneratedType, error) {
 	groups := make([][]FieldSpec, 0, len(declaration.Inputs))
+	inputs := make([]model.GeneratedInput, 0, len(declaration.Inputs))
+	nameCounts := countBaseInputNames(declaration.Inputs)
 	for _, input := range declaration.Inputs {
-		groups = append(groups, ExtractFields(input.Struct))
+		fields := ExtractFields(input.Struct)
+		groups = append(groups, fields)
+		inputs = append(inputs, model.GeneratedInput{
+			Expression:    input.Expr,
+			ParameterName: constructorParameterName(input.Expr, nameCounts),
+			Type:          input.Type,
+			MethodName:    splitMethodName(input.Expr, nameCounts),
+			FieldNames:    fieldNames(fields),
+		})
 	}
 
 	fields, err := ComposeFields(groups)
@@ -92,6 +105,7 @@ func buildProductGeneratedType(declaration model.ResolvedDeclaration) (model.Gen
 		Kind:           model.DeclarationKindProduct,
 		Name:           declaration.Declaration.Name,
 		TypeParameters: append([]string(nil), declaration.Declaration.TypeParameters...),
+		Inputs:         inputs,
 		Fields:         make([]model.GeneratedField, 0, len(fields)),
 	}
 	for _, field := range fields {
@@ -301,4 +315,67 @@ func inputTypeName(typ types.Type) string {
 		return types.TypeString(typ, nil)
 	}
 	return named.Obj().Name()
+}
+
+func fieldNames(fields []FieldSpec) []string {
+	names := make([]string, 0, len(fields))
+	for _, field := range fields {
+		names = append(names, field.Name)
+	}
+	return names
+}
+
+func countBaseInputNames(inputs []model.ResolvedType) map[string]int {
+	counts := make(map[string]int, len(inputs))
+	for _, input := range inputs {
+		counts[baseInputName(input.Expr)]++
+	}
+	return counts
+}
+
+func constructorParameterName(expr string, counts map[string]int) string {
+	base := baseInputName(expr)
+	if counts[base] == 1 || !strings.Contains(expr, ".") {
+		return lowerFirst(base)
+	}
+	return lowerFirst(qualifiedInputName(expr))
+}
+
+func splitMethodName(expr string, counts map[string]int) string {
+	base := baseInputName(expr)
+	if counts[base] == 1 || !strings.Contains(expr, ".") {
+		return "To" + base
+	}
+	return "To" + qualifiedInputName(expr)
+}
+
+func baseInputName(expr string) string {
+	trimmed := expr
+	if index := strings.Index(trimmed, "["); index >= 0 {
+		trimmed = trimmed[:index]
+	}
+	if index := strings.LastIndex(trimmed, "."); index >= 0 {
+		trimmed = trimmed[index+1:]
+	}
+	return trimmed
+}
+
+func qualifiedInputName(expr string) string {
+	trimmed := expr
+	if index := strings.Index(trimmed, "["); index >= 0 {
+		trimmed = trimmed[:index]
+	}
+	parts := strings.Split(trimmed, ".")
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return strings.Join(parts, "_")
+}
+
+func lowerFirst(name string) string {
+	r, size := utf8.DecodeRuneInString(name)
+	if r == utf8.RuneError && size == 0 {
+		return ""
+	}
+	return string(unicode.ToLower(r)) + name[size:]
 }

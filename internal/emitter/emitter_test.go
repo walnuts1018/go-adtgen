@@ -84,6 +84,68 @@ func TestRenderIncludesImportsTypeParametersAnonymousFieldsAndTags(t *testing.T)
 	}
 }
 
+func TestRenderIncludesConstructorAndSplitMethods(t *testing.T) {
+	aType := types.NewNamed(
+		types.NewTypeName(token.NoPos, nil, "A", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, nil, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+	bType := types.NewNamed(
+		types.NewTypeName(token.NoPos, nil, "B", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, nil, "Name", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+
+	src, err := Render("sample", []model.GeneratedType{
+		{
+			Name:           "AB",
+			TypeParameters: []string{"T any"},
+			Fields: []model.GeneratedField{
+				{Name: "ID", Type: types.Typ[types.String]},
+				{Name: "Name", Type: types.Typ[types.String]},
+			},
+			Inputs: []model.GeneratedInput{
+				{
+					Expression:    "A[T]",
+					ParameterName: "a",
+					Type:          aType,
+					MethodName:    "ToA",
+					FieldNames:    []string{"ID"},
+				},
+				{
+					Expression:    "B",
+					ParameterName: "b",
+					Type:          bType,
+					MethodName:    "ToB",
+					FieldNames:    []string{"Name"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, want := range []string{
+		"func NewAB[T any](a A, b B) AB[T] {",
+		"func (x AB[T]) ToA() A {",
+		"func (x AB[T]) ToB() B {",
+		"return AB[T]{",
+		"ID:   a.ID,",
+		"Name: b.Name,",
+		"return A{",
+		"return B{",
+	} {
+		if !strings.Contains(src, want) {
+			t.Fatalf("missing %q in output:\n%s", want, src)
+		}
+	}
+}
+
 func TestRenderForPackageImportsExternalTypeWithSamePackageName(t *testing.T) {
 	samplePkg := types.NewPackage("example.com/other/sample", "sample")
 	externalType := types.NewNamed(

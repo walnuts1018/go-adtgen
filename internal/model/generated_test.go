@@ -17,7 +17,7 @@ func TestGeneratedTypeKeepsInputMetadata(t *testing.T) {
 				Expression:    "Foo[T]",
 				ParameterName: "foo",
 				Type:          inputType,
-				MethodName:    "Foo",
+				MethodName:    "ToFoo",
 				FieldNames:    []string{"ID", "Name"},
 			},
 		},
@@ -37,8 +37,8 @@ func TestGeneratedTypeKeepsInputMetadata(t *testing.T) {
 	if !types.Identical(input.Type, inputType) {
 		t.Fatalf("input.Type = %v, want %v", input.Type, inputType)
 	}
-	if input.MethodName != "Foo" {
-		t.Fatalf("input.MethodName = %q, want %q", input.MethodName, "Foo")
+	if input.MethodName != "ToFoo" {
+		t.Fatalf("input.MethodName = %q, want %q", input.MethodName, "ToFoo")
 	}
 	if !reflect.DeepEqual(input.FieldNames, []string{"ID", "Name"}) {
 		t.Fatalf("input.FieldNames = %v, want %v", input.FieldNames, []string{"ID", "Name"})
