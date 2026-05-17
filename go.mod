@@ -1,4 +1,4 @@
-module github.com/walnuts1018/go-product-type
+module github.com/walnuts1018/go-adtgen
 
 go 1.26.3
 

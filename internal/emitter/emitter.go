@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/walnuts1018/go-product-type/internal/model"
+	"github.com/walnuts1018/go-adtgen/internal/model"
 )
 
 func Render(pkgName string, generated []model.GeneratedType) (string, error) {

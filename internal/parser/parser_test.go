@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/walnuts1018/go-product-type/internal/model"
+	"github.com/walnuts1018/go-adtgen/internal/model"
 )
 
 func TestCollectDeclarationsFindsProductAnnotation(t *testing.T) {

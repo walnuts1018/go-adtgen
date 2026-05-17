@@ -5,13 +5,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/walnuts1018/go-product-type/internal/composer"
-	"github.com/walnuts1018/go-product-type/internal/emitter"
-	"github.com/walnuts1018/go-product-type/internal/loader"
-	"github.com/walnuts1018/go-product-type/internal/model"
-	"github.com/walnuts1018/go-product-type/internal/parser"
-	"github.com/walnuts1018/go-product-type/internal/resolver"
-	"github.com/walnuts1018/go-product-type/internal/writer"
+	"github.com/walnuts1018/go-adtgen/internal/composer"
+	"github.com/walnuts1018/go-adtgen/internal/emitter"
+	"github.com/walnuts1018/go-adtgen/internal/loader"
+	"github.com/walnuts1018/go-adtgen/internal/model"
+	"github.com/walnuts1018/go-adtgen/internal/parser"
+	"github.com/walnuts1018/go-adtgen/internal/resolver"
+	"github.com/walnuts1018/go-adtgen/internal/writer"
 )
 
 func main() {

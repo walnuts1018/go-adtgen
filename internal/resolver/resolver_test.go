@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/walnuts1018/go-product-type/internal/loader"
-	"github.com/walnuts1018/go-product-type/internal/model"
-	"github.com/walnuts1018/go-product-type/internal/parser"
+	"github.com/walnuts1018/go-adtgen/internal/loader"
+	"github.com/walnuts1018/go-adtgen/internal/model"
+	"github.com/walnuts1018/go-adtgen/internal/parser"
 )
 
 func TestResolveExpressionResolvesNamedStructType(t *testing.T) {

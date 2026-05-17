@@ -10,8 +10,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/walnuts1018/go-product-type/internal/loader"
-	"github.com/walnuts1018/go-product-type/internal/model"
+	"github.com/walnuts1018/go-adtgen/internal/loader"
+	"github.com/walnuts1018/go-adtgen/internal/model"
 )
 
 func ResolveExpression(expr string, files map[string]string) (types.Type, error) {
