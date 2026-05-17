@@ -72,7 +72,7 @@ func (x *Fuga) SetID(v string) {
 	x.Common.ID = v
 }
 
-func MatchHogeOrFuga[T any](v HogeOrFuga, whenHoge func(Hoge) T, whenFuga func(Fuga) T) T {
+func MatchHogeOrFuga[R any](v HogeOrFuga, whenHoge func(Hoge) R, whenFuga func(Fuga) R) R {
 	switch x := v.(type) {
 	case *Hoge:
 		return whenHoge(*x)
@@ -83,7 +83,7 @@ func MatchHogeOrFuga[T any](v HogeOrFuga, whenHoge func(Hoge) T, whenFuga func(F
 	}
 }
 
-func MatchHogeOrFuga2[S, T any](v HogeOrFuga, whenHoge func(Hoge) (S, T), whenFuga func(Fuga) (S, T)) (S, T) {
+func MatchHogeOrFuga2[R1, R2 any](v HogeOrFuga, whenHoge func(Hoge) (R1, R2), whenFuga func(Fuga) (R1, R2)) (R1, R2) {
 	switch x := v.(type) {
 	case *Hoge:
 		return whenHoge(*x)

@@ -234,3 +234,43 @@ func TestBuildGeneratedTypeRejectsAmbiguousPromotedCommonFields(t *testing.T) {
 		t.Fatalf("BuildGeneratedType() error = %q, want %q", got, "composer: ambiguous promoted field ID in Hoge")
 	}
 }
+
+func TestBuildGeneratedTypeSkipsConflictingCommonFieldTypes(t *testing.T) {
+	pkg := types.NewPackage("example.com/sample", "sample")
+	hogeType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Hoge", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+	fugaType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Fuga", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.Int], false),
+		}, nil),
+		nil,
+	)
+
+	decl := model.ResolvedDeclaration{
+		Declaration: model.Declaration{
+			Kind: model.DeclarationKindSum,
+			Name: "HogeOrFuga",
+		},
+		Inputs: []model.ResolvedType{
+			{Expr: "Hoge", Type: hogeType, Struct: hogeType.Underlying().(*types.Struct)},
+			{Expr: "Fuga", Type: fugaType, Struct: fugaType.Underlying().(*types.Struct)},
+		},
+	}
+
+	generated, err := BuildGeneratedType(decl)
+	if err != nil {
+		t.Fatalf("BuildGeneratedType() error = %v", err)
+	}
+	if generated.Sum == nil {
+		t.Fatal("generated.Sum = nil")
+	}
+	if len(generated.Sum.CommonFields) != 0 {
+		t.Fatalf("len(generated.Sum.CommonFields) = %d, want 0", len(generated.Sum.CommonFields))
+	}
+}

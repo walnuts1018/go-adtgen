@@ -202,7 +202,7 @@ func renderProductType(buf *bytes.Buffer, generatedType model.GeneratedType, qua
 
 func renderSumType(buf *bytes.Buffer, generatedType model.GeneratedType, qualifier types.Qualifier) {
 	buf.WriteString("type ")
-	buf.WriteString(generatedType.Name)
+	buf.WriteString(renderGeneratedTypeName(generatedType, true))
 	buf.WriteString(" interface {\n")
 	buf.WriteString("\tis")
 	buf.WriteString(generatedType.Name)
@@ -299,10 +299,14 @@ func renderSumVariantMethods(buf *bytes.Buffer, generatedType model.GeneratedTyp
 }
 
 func renderSumMatchFunctions(buf *bytes.Buffer, generatedType model.GeneratedType, qualifier types.Qualifier) {
+	sumTypeRef := renderGeneratedTypeName(generatedType, false)
+	matchReturnType := uniqueTypeParameterNames(generatedType.TypeParameters, "R")
+
 	buf.WriteString("func Match")
 	buf.WriteString(generatedType.Name)
-	buf.WriteString("[T any](v ")
-	buf.WriteString(generatedType.Name)
+	buf.WriteString(renderFunctionTypeParameters(generatedType.TypeParameters, matchReturnType))
+	buf.WriteString("(v ")
+	buf.WriteString(sumTypeRef)
 	buf.WriteString(", ")
 	for i, variant := range generatedType.Sum.Variants {
 		if i > 0 {
@@ -312,9 +316,12 @@ func renderSumMatchFunctions(buf *bytes.Buffer, generatedType model.GeneratedTyp
 		buf.WriteString(variant.TypeName)
 		buf.WriteString(" func(")
 		buf.WriteString(types.TypeString(variant.Type, qualifier))
-		buf.WriteString(") T")
+		buf.WriteString(") ")
+		buf.WriteString(matchReturnType[0])
 	}
-	buf.WriteString(") T {\n\tswitch x := v.(type) {\n")
+	buf.WriteString(") ")
+	buf.WriteString(matchReturnType[0])
+	buf.WriteString(" {\n\tswitch x := v.(type) {\n")
 	for _, variant := range generatedType.Sum.Variants {
 		buf.WriteString("\tcase *")
 		buf.WriteString(types.TypeString(variant.Type, qualifier))
@@ -328,8 +335,11 @@ func renderSumMatchFunctions(buf *bytes.Buffer, generatedType model.GeneratedTyp
 
 	buf.WriteString("func Match")
 	buf.WriteString(generatedType.Name)
-	buf.WriteString("2[S, T any](v ")
-	buf.WriteString(generatedType.Name)
+	match2ReturnTypes := uniqueTypeParameterNames(generatedType.TypeParameters, "R1", "R2")
+	buf.WriteString("2")
+	buf.WriteString(renderFunctionTypeParameters(generatedType.TypeParameters, match2ReturnTypes))
+	buf.WriteString("(v ")
+	buf.WriteString(sumTypeRef)
 	buf.WriteString(", ")
 	for i, variant := range generatedType.Sum.Variants {
 		if i > 0 {
@@ -339,9 +349,13 @@ func renderSumMatchFunctions(buf *bytes.Buffer, generatedType model.GeneratedTyp
 		buf.WriteString(variant.TypeName)
 		buf.WriteString(" func(")
 		buf.WriteString(types.TypeString(variant.Type, qualifier))
-		buf.WriteString(") (S, T)")
+		buf.WriteString(") (")
+		buf.WriteString(strings.Join(match2ReturnTypes, ", "))
+		buf.WriteString(")")
 	}
-	buf.WriteString(") (S, T) {\n\tswitch x := v.(type) {\n")
+	buf.WriteString(") (")
+	buf.WriteString(strings.Join(match2ReturnTypes, ", "))
+	buf.WriteString(") {\n\tswitch x := v.(type) {\n")
 	for _, variant := range generatedType.Sum.Variants {
 		buf.WriteString("\tcase *")
 		buf.WriteString(types.TypeString(variant.Type, qualifier))
@@ -357,10 +371,11 @@ func renderSumMatchFunctions(buf *bytes.Buffer, generatedType model.GeneratedTyp
 func renderSumUnmarshalFunction(buf *bytes.Buffer, generatedType model.GeneratedType, qualifier types.Qualifier) {
 	buf.WriteString("func Unmarshal")
 	buf.WriteString(generatedType.Name)
+	buf.WriteString(renderFunctionTypeParameters(generatedType.TypeParameters, nil))
 	buf.WriteString("(data []byte) (")
-	buf.WriteString(generatedType.Name)
+	buf.WriteString(renderGeneratedTypeName(generatedType, false))
 	buf.WriteString(", error) {\n\tvar result ")
-	buf.WriteString(generatedType.Name)
+	buf.WriteString(renderGeneratedTypeName(generatedType, false))
 	buf.WriteString("\n\tmatches := 0\n")
 
 	for _, variant := range generatedType.Sum.Variants {
@@ -464,6 +479,20 @@ func renderGeneratedTypeName(generatedType model.GeneratedType, withConstraints 
 	return generatedType.Name + "[" + strings.Join(params, ", ") + "]"
 }
 
+func renderFunctionTypeParameters(typeParameters []string, extraNames []string) string {
+	if len(typeParameters) == 0 && len(extraNames) == 0 {
+		return ""
+	}
+
+	parts := append([]string(nil), typeParameters...)
+	if len(extraNames) == 1 {
+		parts = append(parts, extraNames[0]+" any")
+	} else if len(extraNames) > 1 {
+		parts = append(parts, strings.Join(extraNames, ", ")+" any")
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
+}
+
 func renderTypeParameterNames(typeParameters []string) []string {
 	names := make([]string, 0, len(typeParameters))
 	for _, parameter := range typeParameters {
@@ -473,6 +502,35 @@ func renderTypeParameterNames(typeParameters []string) []string {
 		}
 		names = append(names, strings.TrimSuffix(fields[0], ","))
 	}
+	return names
+}
+
+func uniqueTypeParameterNames(typeParameters []string, bases ...string) []string {
+	used := make(map[string]struct{}, len(typeParameters)+len(bases))
+	for _, name := range renderTypeParameterNames(typeParameters) {
+		used[name] = struct{}{}
+	}
+
+	names := make([]string, 0, len(bases))
+	for _, base := range bases {
+		name := base
+		if _, ok := used[name]; !ok {
+			used[name] = struct{}{}
+			names = append(names, name)
+			continue
+		}
+
+		for i := 1; ; i++ {
+			candidate := fmt.Sprintf("%s%d", base, i)
+			if _, ok := used[candidate]; ok {
+				continue
+			}
+			used[candidate] = struct{}{}
+			names = append(names, candidate)
+			break
+		}
+	}
+
 	return names
 }
 

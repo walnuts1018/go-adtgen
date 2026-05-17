@@ -234,11 +234,71 @@ func TestRenderIncludesSumInterfaceMethodsAndHelpers(t *testing.T) {
 		"func (x *Hoge) AsFuga() (Fuga, bool) {",
 		"func (x *Hoge) GetID() string {",
 		"func (x *Hoge) SetID(v string) {",
-		"func MatchHogeOrFuga[T any](v HogeOrFuga, whenHoge func(Hoge) T, whenFuga func(Fuga) T) T {",
-		"func MatchHogeOrFuga2[S, T any](v HogeOrFuga, whenHoge func(Hoge) (S, T), whenFuga func(Fuga) (S, T)) (S, T) {",
+		"func MatchHogeOrFuga[R any](v HogeOrFuga, whenHoge func(Hoge) R, whenFuga func(Fuga) R) R {",
+		"func MatchHogeOrFuga2[R1, R2 any](v HogeOrFuga, whenHoge func(Hoge) (R1, R2), whenFuga func(Fuga) (R1, R2)) (R1, R2) {",
 		"func UnmarshalHogeOrFuga(data []byte) (HogeOrFuga, error) {",
 		"decoder := json.NewDecoder(bytes.NewReader(data))",
 		"result = &candidate",
+	} {
+		if !strings.Contains(src, want) {
+			t.Fatalf("RenderForPackage() output missing %q:\n%s", want, src)
+		}
+	}
+}
+
+func TestRenderIncludesSumTypeParametersInInterfaceAndHelpers(t *testing.T) {
+	pkg := types.NewPackage("example.com/sample", "sample")
+	sumTypeParam := types.NewTypeParam(types.NewTypeName(token.NoPos, nil, "T", nil), types.Universe.Lookup("any").Type())
+	leftTypeParam := types.NewTypeParam(types.NewTypeName(token.NoPos, nil, "T", nil), types.Universe.Lookup("any").Type())
+	leftOrigin := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Left", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "Value", leftTypeParam, false),
+		}, nil),
+		nil,
+	)
+	leftOrigin.SetTypeParams([]*types.TypeParam{leftTypeParam})
+	rightTypeParam := types.NewTypeParam(types.NewTypeName(token.NoPos, nil, "T", nil), types.Universe.Lookup("any").Type())
+	rightOrigin := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Right", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "Value", rightTypeParam, false),
+		}, nil),
+		nil,
+	)
+	rightOrigin.SetTypeParams([]*types.TypeParam{rightTypeParam})
+	leftType, err := types.Instantiate(nil, leftOrigin, []types.Type{sumTypeParam}, false)
+	if err != nil {
+		t.Fatalf("types.Instantiate(leftOrigin) error = %v", err)
+	}
+	rightType, err := types.Instantiate(nil, rightOrigin, []types.Type{sumTypeParam}, false)
+	if err != nil {
+		t.Fatalf("types.Instantiate(rightOrigin) error = %v", err)
+	}
+
+	src, err := RenderForPackage("example.com/sample", "sample", []model.GeneratedType{
+		{
+			Kind:           model.DeclarationKindSum,
+			Name:           "Either",
+			TypeParameters: []string{"T any"},
+			Sum: &model.GeneratedSum{
+				Variants: []model.GeneratedSumVariant{
+					{Expression: "Left[T]", Type: leftType, TypeName: "Left"},
+					{Expression: "Right[T]", Type: rightType, TypeName: "Right"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("RenderForPackage() error = %v", err)
+	}
+
+	for _, want := range []string{
+		"type Either[T any] interface {",
+		"func (*Left[T]) isEither() {}",
+		"func MatchEither[T any, R any](v Either[T], whenLeft func(Left[T]) R, whenRight func(Right[T]) R) R {",
+		"func MatchEither2[T any, R1, R2 any](v Either[T], whenLeft func(Left[T]) (R1, R2), whenRight func(Right[T]) (R1, R2)) (R1, R2) {",
+		"func UnmarshalEither[T any](data []byte) (Either[T], error) {",
 	} {
 		if !strings.Contains(src, want) {
 			t.Fatalf("RenderForPackage() output missing %q:\n%s", want, src)

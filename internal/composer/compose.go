@@ -281,7 +281,8 @@ func buildCommonFields(variants []model.GeneratedSumVariant, fieldSets []map[str
 				break
 			}
 			if !types.Identical(first.Type, field.Type) {
-				return nil, fmt.Errorf("composer: conflicting common field %s", name)
+				include = false
+				break
 			}
 			paths = append(paths, append([]string(nil), field.Path...))
 		}
