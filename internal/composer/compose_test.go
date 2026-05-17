@@ -7,14 +7,23 @@ import (
 	"testing"
 )
 
+const (
+	fieldNameName          = "Name"
+	fieldNameEmbedded      = "Embedded"
+	fieldTagJSONID         = `json:"id"`
+	fieldTagJSONName       = `json:"name"`
+	fieldTagJSONEmbedded   = `json:"embedded"`
+	errConflictingEmbedded = "conflicting field Embedded"
+)
+
 func TestComposeFieldsMergesIdenticalNamedFields(t *testing.T) {
 	fields := [][]FieldSpec{
 		{
-			{Name: "ID", Type: types.Typ[types.String], Tag: `json:"id"`},
-			{Name: "Name", Type: types.Typ[types.String], Tag: `json:"name"`},
+			{Name: "ID", Type: types.Typ[types.String], Tag: fieldTagJSONID},
+			{Name: fieldNameName, Type: types.Typ[types.String], Tag: fieldTagJSONName},
 		},
 		{
-			{Name: "ID", Type: types.Typ[types.String], Tag: `json:"id"`},
+			{Name: "ID", Type: types.Typ[types.String], Tag: fieldTagJSONID},
 		},
 	}
 
@@ -29,8 +38,8 @@ func TestComposeFieldsMergesIdenticalNamedFields(t *testing.T) {
 	if got[0].Name != "ID" {
 		t.Fatalf("got first field %q, want %q", got[0].Name, "ID")
 	}
-	if got[1].Name != "Name" {
-		t.Fatalf("got second field %q, want %q", got[1].Name, "Name")
+	if got[1].Name != fieldNameName {
+		t.Fatalf("got second field %q, want %q", got[1].Name, fieldNameName)
 	}
 }
 
@@ -56,7 +65,7 @@ func TestComposeFieldsRejectsConflictingNamedFieldTypes(t *testing.T) {
 func TestComposeFieldsRejectsConflictingNamedFieldTags(t *testing.T) {
 	fields := [][]FieldSpec{
 		{
-			{Name: "ID", Type: types.Typ[types.String], Tag: `json:"id"`},
+			{Name: "ID", Type: types.Typ[types.String], Tag: fieldTagJSONID},
 		},
 		{
 			{Name: "ID", Type: types.Typ[types.String], Tag: `db:"id"`},
@@ -74,18 +83,18 @@ func TestComposeFieldsRejectsConflictingNamedFieldTags(t *testing.T) {
 
 func TestComposeFieldsMergesIdenticalAnonymousFields(t *testing.T) {
 	embeddedType := types.NewNamed(
-		types.NewTypeName(token.NoPos, nil, "Embedded", nil),
+		types.NewTypeName(token.NoPos, nil, fieldNameEmbedded, nil),
 		types.NewStruct(nil, nil),
 		nil,
 	)
 
 	fields := [][]FieldSpec{
 		{
-			{Name: "Embedded", Type: embeddedType, Anonymous: true},
-			{Name: "Name", Type: types.Typ[types.String]},
+			{Name: fieldNameEmbedded, Type: embeddedType, Anonymous: true},
+			{Name: fieldNameName, Type: types.Typ[types.String]},
 		},
 		{
-			{Name: "Embedded", Type: embeddedType, Anonymous: true},
+			{Name: fieldNameEmbedded, Type: embeddedType, Anonymous: true},
 		},
 	}
 
@@ -100,24 +109,24 @@ func TestComposeFieldsMergesIdenticalAnonymousFields(t *testing.T) {
 	if !got[0].Anonymous {
 		t.Fatal("got[0].Anonymous = false, want true")
 	}
-	if got[0].Name != "Embedded" {
-		t.Fatalf("got anonymous field %q, want %q", got[0].Name, "Embedded")
+	if got[0].Name != fieldNameEmbedded {
+		t.Fatalf("got anonymous field %q, want %q", got[0].Name, fieldNameEmbedded)
 	}
 }
 
 func TestComposeFieldsKeepsFirstAnonymousFieldMetadataWhenIdenticalFieldsMerge(t *testing.T) {
 	embeddedType := types.NewNamed(
-		types.NewTypeName(token.NoPos, nil, "Embedded", nil),
+		types.NewTypeName(token.NoPos, nil, fieldNameEmbedded, nil),
 		types.NewStruct(nil, nil),
 		nil,
 	)
 
 	fields := [][]FieldSpec{
 		{
-			{Name: "Embedded", Type: embeddedType, Tag: `json:"embedded"`, Anonymous: true},
+			{Name: fieldNameEmbedded, Type: embeddedType, Tag: fieldTagJSONEmbedded, Anonymous: true},
 		},
 		{
-			{Name: "Embedded", Type: embeddedType, Tag: `yaml:"embedded"`, Anonymous: true},
+			{Name: fieldNameEmbedded, Type: embeddedType, Tag: `yaml:"embedded"`, Anonymous: true},
 		},
 	}
 
@@ -129,24 +138,24 @@ func TestComposeFieldsKeepsFirstAnonymousFieldMetadataWhenIdenticalFieldsMerge(t
 	if len(got) != 1 {
 		t.Fatalf("len(ComposeFields()) = %d, want 1", len(got))
 	}
-	if got[0].Tag != `json:"embedded"` {
-		t.Fatalf("got merged anonymous field tag %q, want first field tag %q", got[0].Tag, `json:"embedded"`)
+	if got[0].Tag != fieldTagJSONEmbedded {
+		t.Fatalf("got merged anonymous field tag %q, want first field tag %q", got[0].Tag, fieldTagJSONEmbedded)
 	}
 }
 
 func TestComposeFieldsRejectsConflictingAnonymousFieldTypesWithSameEffectiveName(t *testing.T) {
 	embeddedType := types.NewNamed(
-		types.NewTypeName(token.NoPos, nil, "Embedded", nil),
+		types.NewTypeName(token.NoPos, nil, fieldNameEmbedded, nil),
 		types.NewStruct(nil, nil),
 		nil,
 	)
 
 	fields := [][]FieldSpec{
 		{
-			{Name: "Embedded", Type: embeddedType, Anonymous: true},
+			{Name: fieldNameEmbedded, Type: embeddedType, Anonymous: true},
 		},
 		{
-			{Name: "Embedded", Type: types.NewPointer(embeddedType), Anonymous: true},
+			{Name: fieldNameEmbedded, Type: types.NewPointer(embeddedType), Anonymous: true},
 		},
 	}
 
@@ -154,29 +163,29 @@ func TestComposeFieldsRejectsConflictingAnonymousFieldTypesWithSameEffectiveName
 	if err == nil {
 		t.Fatal("ComposeFields() error = nil, want conflict error")
 	}
-	if !strings.Contains(err.Error(), "conflicting field Embedded") {
-		t.Fatalf("ComposeFields() error = %q, want substring %q", err.Error(), "conflicting field Embedded")
+	if !strings.Contains(err.Error(), errConflictingEmbedded) {
+		t.Fatalf("ComposeFields() error = %q, want substring %q", err.Error(), errConflictingEmbedded)
 	}
 }
 
 func TestComposeFieldsRejectsConflictingAnonymousFieldTypesFromDifferentPackages(t *testing.T) {
 	leftType := types.NewNamed(
-		types.NewTypeName(token.NoPos, types.NewPackage("example.com/left", "left"), "Embedded", nil),
+		types.NewTypeName(token.NoPos, types.NewPackage("example.com/left", "left"), fieldNameEmbedded, nil),
 		types.NewStruct(nil, nil),
 		nil,
 	)
 	rightType := types.NewNamed(
-		types.NewTypeName(token.NoPos, types.NewPackage("example.com/right", "right"), "Embedded", nil),
+		types.NewTypeName(token.NoPos, types.NewPackage("example.com/right", "right"), fieldNameEmbedded, nil),
 		types.NewStruct(nil, nil),
 		nil,
 	)
 
 	fields := [][]FieldSpec{
 		{
-			{Name: "Embedded", Type: leftType, Anonymous: true},
+			{Name: fieldNameEmbedded, Type: leftType, Anonymous: true},
 		},
 		{
-			{Name: "Embedded", Type: rightType, Anonymous: true},
+			{Name: fieldNameEmbedded, Type: rightType, Anonymous: true},
 		},
 	}
 
@@ -184,24 +193,24 @@ func TestComposeFieldsRejectsConflictingAnonymousFieldTypesFromDifferentPackages
 	if err == nil {
 		t.Fatal("ComposeFields() error = nil, want conflict error")
 	}
-	if !strings.Contains(err.Error(), "conflicting field Embedded") {
-		t.Fatalf("ComposeFields() error = %q, want substring %q", err.Error(), "conflicting field Embedded")
+	if !strings.Contains(err.Error(), errConflictingEmbedded) {
+		t.Fatalf("ComposeFields() error = %q, want substring %q", err.Error(), errConflictingEmbedded)
 	}
 }
 
 func TestComposeFieldsRejectsConflictBetweenNamedAndAnonymousFieldsWithSameEffectiveName(t *testing.T) {
 	embeddedType := types.NewNamed(
-		types.NewTypeName(token.NoPos, nil, "Embedded", nil),
+		types.NewTypeName(token.NoPos, nil, fieldNameEmbedded, nil),
 		types.NewStruct(nil, nil),
 		nil,
 	)
 
 	fields := [][]FieldSpec{
 		{
-			{Name: "Embedded", Type: embeddedType, Anonymous: true},
+			{Name: fieldNameEmbedded, Type: embeddedType, Anonymous: true},
 		},
 		{
-			{Name: "Embedded", Type: types.Typ[types.String]},
+			{Name: fieldNameEmbedded, Type: types.Typ[types.String]},
 		},
 	}
 
@@ -209,8 +218,8 @@ func TestComposeFieldsRejectsConflictBetweenNamedAndAnonymousFieldsWithSameEffec
 	if err == nil {
 		t.Fatal("ComposeFields() error = nil, want conflict error")
 	}
-	if !strings.Contains(err.Error(), "conflicting field Embedded") {
-		t.Fatalf("ComposeFields() error = %q, want substring %q", err.Error(), "conflicting field Embedded")
+	if !strings.Contains(err.Error(), errConflictingEmbedded) {
+		t.Fatalf("ComposeFields() error = %q, want substring %q", err.Error(), errConflictingEmbedded)
 	}
 }
 
@@ -227,7 +236,7 @@ func TestComposeFieldsKeepsDistinctAnonymousFieldNamesForIdenticalTypes(t *testi
 
 	fields := [][]FieldSpec{
 		{
-			{Name: "Embedded", Type: embeddedType, Anonymous: true},
+			{Name: fieldNameEmbedded, Type: embeddedType, Anonymous: true},
 		},
 		{
 			{Name: "Alias", Type: aliasType, Anonymous: true},
@@ -242,8 +251,8 @@ func TestComposeFieldsKeepsDistinctAnonymousFieldNamesForIdenticalTypes(t *testi
 	if len(got) != 2 {
 		t.Fatalf("len(ComposeFields()) = %d, want 2", len(got))
 	}
-	if got[0].Name != "Embedded" {
-		t.Fatalf("got first anonymous field %q, want %q", got[0].Name, "Embedded")
+	if got[0].Name != fieldNameEmbedded {
+		t.Fatalf("got first anonymous field %q, want %q", got[0].Name, fieldNameEmbedded)
 	}
 	if got[1].Name != "Alias" {
 		t.Fatalf("got second anonymous field %q, want %q", got[1].Name, "Alias")
@@ -255,7 +264,7 @@ func TestExtractFieldsPreservesAnonymousFields(t *testing.T) {
 		types.NewTypeName(token.NoPos, nil, "Embedded", nil),
 		types.NewStruct([]*types.Var{
 			types.NewField(token.NoPos, nil, "ID", types.Typ[types.String], false),
-		}, []string{`json:"id"`}),
+		}, []string{fieldTagJSONID}),
 		nil,
 	)
 

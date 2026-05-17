@@ -79,7 +79,7 @@ func TestRenderIncludesImportsTypeParametersAnonymousFieldsAndTags(t *testing.T)
 	createdAtIndex := strings.Index(src, "CreatedAt time.Time")
 	embeddedIndex := strings.Index(src, "*dep.Embedded")
 	valueIndex := strings.Index(src, "Value T")
-	if !(createdAtIndex >= 0 && createdAtIndex < embeddedIndex && embeddedIndex < valueIndex) {
+	if createdAtIndex < 0 || createdAtIndex >= embeddedIndex || embeddedIndex >= valueIndex {
 		t.Fatalf("Render() did not preserve field order:\n%s", src)
 	}
 }

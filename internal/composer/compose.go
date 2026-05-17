@@ -23,7 +23,7 @@ func ExtractFields(st *types.Struct) []FieldSpec {
 	}
 
 	fields := make([]FieldSpec, 0, st.NumFields())
-	for i := 0; i < st.NumFields(); i++ {
+	for i := range st.NumFields() {
 		field := st.Field(i)
 		fields = append(fields, FieldSpec{
 			Name:      field.Name(),
@@ -139,18 +139,13 @@ func buildSumGeneratedType(declaration model.ResolvedDeclaration) (model.Generat
 		fieldOrders = append(fieldOrders, order)
 	}
 
-	commonFields, err := buildCommonFields(variants, fieldSets, fieldOrders)
-	if err != nil {
-		return model.GeneratedType{}, err
-	}
-
 	return model.GeneratedType{
 		Kind:           model.DeclarationKindSum,
 		Name:           declaration.Declaration.Name,
 		TypeParameters: append([]string(nil), declaration.Declaration.TypeParameters...),
 		Sum: &model.GeneratedSum{
 			Variants:     variants,
-			CommonFields: commonFields,
+			CommonFields: buildCommonFields(variants, fieldSets, fieldOrders),
 		},
 	}, nil
 }
@@ -196,8 +191,7 @@ func collectAccessibleFields(typ types.Type, st *types.Struct) (map[string]acces
 		levelCandidates := make(map[string][]accessibleField)
 
 		for _, level := range current {
-			for i := 0; i < level.Struct.NumFields(); i++ {
-				field := level.Struct.Field(i)
+			for field := range level.Struct.Fields() {
 				path := appendPath(level.Path, field.Name())
 				if !field.Embedded() {
 					levelCandidates[field.Name()] = append(levelCandidates[field.Name()], accessibleField{
@@ -262,9 +256,9 @@ func embeddedStructType(typ types.Type) (*types.Struct, bool) {
 	}
 }
 
-func buildCommonFields(variants []model.GeneratedSumVariant, fieldSets []map[string]accessibleField, fieldOrders [][]string) ([]model.GeneratedCommonField, error) {
+func buildCommonFields(variants []model.GeneratedSumVariant, fieldSets []map[string]accessibleField, fieldOrders [][]string) []model.GeneratedCommonField {
 	if len(variants) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	common := make([]model.GeneratedCommonField, 0)
@@ -299,7 +293,7 @@ func buildCommonFields(variants []model.GeneratedSumVariant, fieldSets []map[str
 		})
 	}
 
-	return common, nil
+	return common
 }
 
 func appendPath(base []string, name string) []string {
@@ -428,7 +422,7 @@ func toLowerCamel(name string) string {
 		return string(runes)
 	}
 
-	for i := 0; i < upperCount-1; i++ {
+	for i := range upperCount - 1 {
 		runes[i] = unicode.ToLower(runes[i])
 	}
 

@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+const generatedInputFieldName = "Name"
+
 func TestGeneratedTypeKeepsInputMetadata(t *testing.T) {
 	inputType := types.NewSlice(types.Typ[types.String])
 
@@ -18,7 +20,7 @@ func TestGeneratedTypeKeepsInputMetadata(t *testing.T) {
 				ParameterName: "foo",
 				Type:          inputType,
 				MethodName:    "ToFoo",
-				FieldNames:    []string{"ID", "Name"},
+				FieldNames:    []string{"ID", generatedInputFieldName},
 			},
 		},
 	}
@@ -40,7 +42,7 @@ func TestGeneratedTypeKeepsInputMetadata(t *testing.T) {
 	if input.MethodName != "ToFoo" {
 		t.Fatalf("input.MethodName = %q, want %q", input.MethodName, "ToFoo")
 	}
-	if !reflect.DeepEqual(input.FieldNames, []string{"ID", "Name"}) {
-		t.Fatalf("input.FieldNames = %v, want %v", input.FieldNames, []string{"ID", "Name"})
+	if !reflect.DeepEqual(input.FieldNames, []string{"ID", generatedInputFieldName}) {
+		t.Fatalf("input.FieldNames = %v, want %v", input.FieldNames, []string{"ID", generatedInputFieldName})
 	}
 }

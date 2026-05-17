@@ -10,6 +10,8 @@ import (
 	"github.com/walnuts1018/go-adtgen/internal/model"
 )
 
+const productExpressionAB = "A B"
+
 func TestCollectDeclarationsFindsProductAnnotation(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
@@ -30,8 +32,8 @@ type AB struct{}
 	if decls[0].Name != "AB" {
 		t.Fatalf("got %q, want AB", decls[0].Name)
 	}
-	if decls[0].Expression != "A B" {
-		t.Fatalf("got %q, want %q", decls[0].Expression, "A B")
+	if decls[0].Expression != productExpressionAB {
+		t.Fatalf("got %q, want %q", decls[0].Expression, productExpressionAB)
 	}
 	if decls[0].Kind != model.DeclarationKindProduct {
 		t.Fatalf("got kind %q, want %q", decls[0].Kind, model.DeclarationKindProduct)
@@ -88,8 +90,8 @@ type (
 	if decls[0].Name != "AB" {
 		t.Fatalf("got %q, want AB", decls[0].Name)
 	}
-	if decls[0].Expression != "A B" {
-		t.Fatalf("got %q, want %q", decls[0].Expression, "A B")
+	if decls[0].Expression != productExpressionAB {
+		t.Fatalf("got %q, want %q", decls[0].Expression, productExpressionAB)
 	}
 }
 
@@ -173,7 +175,7 @@ func TestCollectDeclarationsParsesWhitespaceTolerantDirective(t *testing.T) {
 	if len(decls) != 1 {
 		t.Fatalf("got %d declarations, want 1", len(decls))
 	}
-	if decls[0].Expression != "A B" {
-		t.Fatalf("got %q, want %q", decls[0].Expression, "A B")
+	if decls[0].Expression != productExpressionAB {
+		t.Fatalf("got %q, want %q", decls[0].Expression, productExpressionAB)
 	}
 }

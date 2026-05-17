@@ -8,9 +8,19 @@ import (
 	"github.com/walnuts1018/go-adtgen/internal/model"
 )
 
+const (
+	generatedFieldEmbedded   = "Embedded"
+	generatedFieldName       = "Name"
+	generatedTagJSONEmbedded = `json:"embedded"`
+	generatedTagJSONName     = `json:"name"`
+	generatedTypeHogeOrFuga  = "HogeOrFuga"
+	generatedExprHoge        = "Hoge"
+	generatedExprFuga        = "Fuga"
+)
+
 func TestBuildGeneratedTypePreservesTypeParametersAndComposedFields(t *testing.T) {
 	embeddedType := types.NewNamed(
-		types.NewTypeName(token.NoPos, nil, "Embedded", nil),
+		types.NewTypeName(token.NoPos, nil, generatedFieldEmbedded, nil),
 		types.NewStruct(nil, nil),
 		nil,
 	)
@@ -18,16 +28,16 @@ func TestBuildGeneratedTypePreservesTypeParametersAndComposedFields(t *testing.T
 	first := types.NewStruct(
 		[]*types.Var{
 			types.NewField(token.NoPos, nil, "ID", types.Typ[types.String], false),
-			types.NewField(token.NoPos, nil, "Embedded", embeddedType, true),
+			types.NewField(token.NoPos, nil, generatedFieldEmbedded, embeddedType, true),
 		},
-		[]string{`json:"id"`, `json:"embedded"`},
+		[]string{fieldTagJSONID, generatedTagJSONEmbedded},
 	)
 	second := types.NewStruct(
 		[]*types.Var{
 			types.NewField(token.NoPos, nil, "ID", types.Typ[types.String], false),
-			types.NewField(token.NoPos, nil, "Name", types.Typ[types.String], false),
+			types.NewField(token.NoPos, nil, generatedFieldName, types.Typ[types.String], false),
 		},
-		[]string{`json:"id"`, `json:"name"`},
+		[]string{`json:"id"`, generatedTagJSONName},
 	)
 
 	decl := model.ResolvedDeclaration{
@@ -76,11 +86,11 @@ func TestBuildGeneratedTypePreservesTypeParametersAndComposedFields(t *testing.T
 		t.Fatalf("generated.Fields[0].Type = %v, want string", generated.Fields[0].Type)
 	}
 
-	if generated.Fields[1].Name != "Embedded" {
-		t.Fatalf("generated.Fields[1].Name = %q, want %q", generated.Fields[1].Name, "Embedded")
+	if generated.Fields[1].Name != generatedFieldEmbedded {
+		t.Fatalf("generated.Fields[1].Name = %q, want %q", generated.Fields[1].Name, generatedFieldEmbedded)
 	}
-	if generated.Fields[1].Tag != `json:"embedded"` {
-		t.Fatalf("generated.Fields[1].Tag = %q, want %q", generated.Fields[1].Tag, `json:"embedded"`)
+	if generated.Fields[1].Tag != generatedTagJSONEmbedded {
+		t.Fatalf("generated.Fields[1].Tag = %q, want %q", generated.Fields[1].Tag, generatedTagJSONEmbedded)
 	}
 	if !generated.Fields[1].Anonymous {
 		t.Fatal("generated.Fields[1].Anonymous = false, want true")
@@ -89,11 +99,11 @@ func TestBuildGeneratedTypePreservesTypeParametersAndComposedFields(t *testing.T
 		t.Fatalf("generated.Fields[1].Type = %v, want %v", generated.Fields[1].Type, embeddedType)
 	}
 
-	if generated.Fields[2].Name != "Name" {
-		t.Fatalf("generated.Fields[2].Name = %q, want %q", generated.Fields[2].Name, "Name")
+	if generated.Fields[2].Name != generatedFieldName {
+		t.Fatalf("generated.Fields[2].Name = %q, want %q", generated.Fields[2].Name, generatedFieldName)
 	}
-	if generated.Fields[2].Tag != `json:"name"` {
-		t.Fatalf("generated.Fields[2].Tag = %q, want %q", generated.Fields[2].Tag, `json:"name"`)
+	if generated.Fields[2].Tag != generatedTagJSONName {
+		t.Fatalf("generated.Fields[2].Tag = %q, want %q", generated.Fields[2].Tag, generatedTagJSONName)
 	}
 	if generated.Fields[2].Anonymous {
 		t.Fatal("generated.Fields[2].Anonymous = true, want false")
@@ -132,11 +142,11 @@ func TestBuildGeneratedTypeBuildsSumMetadataFromEmbeddedCommonFields(t *testing.
 	decl := model.ResolvedDeclaration{
 		Declaration: model.Declaration{
 			Kind: model.DeclarationKindSum,
-			Name: "HogeOrFuga",
+			Name: generatedTypeHogeOrFuga,
 		},
 		Inputs: []model.ResolvedType{
-			{Expr: "Hoge", Type: hogeType, Struct: hogeType.Underlying().(*types.Struct)},
-			{Expr: "Fuga", Type: fugaType, Struct: fugaType.Underlying().(*types.Struct)},
+			{Expr: generatedExprHoge, Type: hogeType, Struct: hogeType.Underlying().(*types.Struct)},
+			{Expr: generatedExprFuga, Type: fugaType, Struct: fugaType.Underlying().(*types.Struct)},
 		},
 	}
 
@@ -153,11 +163,11 @@ func TestBuildGeneratedTypeBuildsSumMetadataFromEmbeddedCommonFields(t *testing.
 	if len(generated.Sum.Variants) != 2 {
 		t.Fatalf("len(generated.Sum.Variants) = %d, want 2", len(generated.Sum.Variants))
 	}
-	if generated.Sum.Variants[0].TypeName != "Hoge" {
-		t.Fatalf("generated.Sum.Variants[0].TypeName = %q, want %q", generated.Sum.Variants[0].TypeName, "Hoge")
+	if generated.Sum.Variants[0].TypeName != generatedExprHoge {
+		t.Fatalf("generated.Sum.Variants[0].TypeName = %q, want %q", generated.Sum.Variants[0].TypeName, generatedExprHoge)
 	}
-	if generated.Sum.Variants[1].TypeName != "Fuga" {
-		t.Fatalf("generated.Sum.Variants[1].TypeName = %q, want %q", generated.Sum.Variants[1].TypeName, "Fuga")
+	if generated.Sum.Variants[1].TypeName != generatedExprFuga {
+		t.Fatalf("generated.Sum.Variants[1].TypeName = %q, want %q", generated.Sum.Variants[1].TypeName, generatedExprFuga)
 	}
 	if len(generated.Sum.CommonFields) != 1 {
 		t.Fatalf("len(generated.Sum.CommonFields) = %d, want 1", len(generated.Sum.CommonFields))
