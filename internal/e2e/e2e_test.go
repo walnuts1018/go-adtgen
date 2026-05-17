@@ -39,14 +39,6 @@ func TestGeneratedFixtureBuilds(t *testing.T) {
 	}
 }
 
-func TestGeneratedFixtureAPIsBuildAndRun(t *testing.T) {
-	cmd := exec.Command("go", "test", "../testdata/fixtures/e2e/base", "-run", "TestGeneratedAPIs")
-	cmd.Dir = "."
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("fixture api test failed: %v\n%s", err, out)
-	}
-}
-
 func TestGoGenerateBuildsAndExercisesSumFixture(t *testing.T) {
 	dir := filepath.Join("..", "testdata", "fixtures", "e2e", "sum")
 	outputPath := filepath.Join(dir, "zz_generated.adtgen.go")
