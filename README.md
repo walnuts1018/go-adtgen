@@ -5,6 +5,10 @@
 ## Usage
 
 1. Add a `//go:build adtgen_generate` file.
-2. Add `//go:generate go run github.com/walnuts1018/go-adtgen` to a normal package file. (Assuming you want to run the root package or the appropriate command path)
-3. Add `//adtgen:product ...` or `//adtgen:sum ...` above an empty struct declaration.
-4. Run `go generate ./...`.
+2. Add the tool to your project:
+   ```bash
+   go get -tool github.com/walnuts1018/go-adtgen
+   ```
+3. Add `//go:generate go tool go-adtgen` to a normal package file.
+4. Add `//adtgen:product ...` or `//adtgen:sum ...` above an empty struct declaration.
+5. Run `go generate ./...`.
