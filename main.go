@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/walnuts1018/go-adtgen/internal/composer"
 	"github.com/walnuts1018/go-adtgen/internal/emitter"
@@ -36,6 +37,9 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
+	if len(declarations) == 0 {
+		return fmt.Errorf("generator: no declarations found")
+	}
 
 	resolved, err := resolver.ResolveDeclarations(pkg, declarations)
 	if err != nil {
@@ -61,7 +65,8 @@ func run(args []string) error {
 		return err
 	}
 
-	output, err := outputPath(pkg)
+	filename := declarations[0].SourceFilename
+	output, err := outputPathFromSourceFilename(filename)
 	if err != nil {
 		return err
 	}
@@ -69,16 +74,15 @@ func run(args []string) error {
 	return writer.WriteFile(output, src)
 }
 
-func outputPath(pkg *loader.Package) (string, error) {
-	files := pkg.SyntaxFiles()
-	if len(files) == 0 {
-		return "", fmt.Errorf("generator: no syntax files loaded")
-	}
-
-	filename := pkg.Fset.Position(files[0].Package).Filename
+func outputPathFromSourceFilename(filename string) (string, error) {
 	if filename == "" {
-		return "", fmt.Errorf("generator: could not determine package directory")
+		return "", fmt.Errorf("generator: source filename is required")
+	}
+	if filepath.Ext(filename) != ".go" {
+		return "", fmt.Errorf("generator: source filename must end in .go: %s", filename)
 	}
 
-	return filepath.Join(filepath.Dir(filename), "zz_generated.adtgen.go"), nil
+	dir := filepath.Dir(filename)
+	base := strings.TrimSuffix(filepath.Base(filename), ".go")
+	return filepath.Join(dir, base+"_adtgen.go"), nil
 }
