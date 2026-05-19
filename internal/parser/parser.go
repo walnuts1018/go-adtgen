@@ -45,12 +45,14 @@ func CollectDeclarations(fset *token.FileSet, files []*ast.File) ([]model.Declar
 					return nil, fmt.Errorf("%s: annotated declaration %s must be an empty struct", pos, typeSpec.Name.Name)
 				}
 
+				position := fset.Position(typeSpec.Pos())
 				declarations = append(declarations, model.Declaration{
 					Kind:           kind,
 					Name:           typeSpec.Name.Name,
 					Expression:     expression,
 					TypeParameters: collectTypeParameters(fset, typeSpec.TypeParams),
-					Position:       fset.Position(typeSpec.Pos()),
+					Position:       position,
+					SourceFilename: position.Filename,
 				})
 			}
 		}

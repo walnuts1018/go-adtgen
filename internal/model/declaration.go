@@ -15,4 +15,5 @@ type Declaration struct {
 	Expression     string
 	TypeParameters []string
 	Position       token.Position
+	SourceFilename string
 }

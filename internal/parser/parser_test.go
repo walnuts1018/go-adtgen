@@ -38,6 +38,9 @@ type AB struct{}
 	if decls[0].Kind != model.DeclarationKindProduct {
 		t.Fatalf("got kind %q, want %q", decls[0].Kind, model.DeclarationKindProduct)
 	}
+	if decls[0].SourceFilename != "sample.go" {
+		t.Fatalf("got source filename %q, want %q", decls[0].SourceFilename, "sample.go")
+	}
 }
 
 func TestCollectDeclarationsFindsSumAnnotation(t *testing.T) {
