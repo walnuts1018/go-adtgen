@@ -2,5 +2,5 @@
 
 package sum
 
-// +adtgen:sum Hoge Fuga
+// +adtgen:sum=Hoge,Fuga;options=no-setter
 type HogeOrFuga struct{}

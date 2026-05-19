@@ -15,7 +15,7 @@ const productExpressionAB = "A B"
 func TestCollectDeclarationsFindsProductAnnotation(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
-// +adtgen:product A B
+// +adtgen:product=A,B
 type AB struct{}
 `, parser.ParseComments)
 	if err != nil {
@@ -46,7 +46,7 @@ type AB struct{}
 func TestCollectDeclarationsFindsSumAnnotation(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
-// +adtgen:sum Hoge Fuga
+// +adtgen:sum=Hoge,Fuga
 type HogeOrFuga struct{}
 `, parser.ParseComments)
 	if err != nil {
@@ -75,7 +75,7 @@ func TestCollectDeclarationsFindsTypeSpecAnnotationInGroupedTypeDeclaration(t *t
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
 type (
-	// +adtgen:product A B
+	// +adtgen:product=A,B
 	AB struct{}
 )
 `, parser.ParseComments)
@@ -102,7 +102,7 @@ func TestCollectDeclarationsIgnoresUnannotatedDeclarationsInGroupedTypeDeclarati
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
 type (
-	// +adtgen:product A B
+	// +adtgen:product=A,B
 	AB struct{}
 	CD struct{}
 )
@@ -126,7 +126,7 @@ type (
 func TestCollectDeclarationsRejectsAnnotatedTypeAliasDeclarations(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
-// +adtgen:product A B
+// +adtgen:product=A,B
 type AB = struct{}
 `, parser.ParseComments)
 	if err != nil {
@@ -148,7 +148,7 @@ type AB = struct{}
 func TestCollectDeclarationsIgnoresSimilarDirectivePrefixes(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
-// +adtgen:productivity A B
+// +adtgen:productivity=A,B
 type AB struct{}
 `, parser.ParseComments)
 	if err != nil {
@@ -167,7 +167,7 @@ type AB struct{}
 func TestCollectDeclarationsIgnoresOldDirectiveSyntax(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
-//adtgen:product A B
+//adtgen:product=A,B
 type AB struct{}
 `, parser.ParseComments)
 	if err != nil {
@@ -183,9 +183,9 @@ type AB struct{}
 	}
 }
 
-func TestCollectDeclarationsParsesWhitespaceTolerantDirective(t *testing.T) {
+func TestCollectDeclarationsParsesOptions(t *testing.T) {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "sample.go", "package sample\n// +adtgen:product\t  A B\ntype AB struct{}\n", parser.ParseComments)
+	file, err := parser.ParseFile(fset, "sample.go", "package sample\n// +adtgen:sum=Hoge,Fuga;options=no-setter\ntype HogeOrFuga struct{}\n", parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,42 @@ func TestCollectDeclarationsParsesWhitespaceTolerantDirective(t *testing.T) {
 	if len(decls) != 1 {
 		t.Fatalf("got %d declarations, want 1", len(decls))
 	}
-	if decls[0].Expression != productExpressionAB {
-		t.Fatalf("got %q, want %q", decls[0].Expression, productExpressionAB)
+	if decls[0].Expression != "Hoge Fuga" {
+		t.Fatalf("got %q, want %q", decls[0].Expression, "Hoge Fuga")
+	}
+	if !decls[0].Options.NoSetter {
+		t.Fatal("decls[0].Options.NoSetter = false, want true")
+	}
+}
+
+func TestCollectDeclarationsRejectsUnknownOption(t *testing.T) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "sample.go", "package sample\n// +adtgen:sum=Hoge,Fuga;options=unknown\ntype HogeOrFuga struct{}\n", parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = CollectDeclarations(fset, []*ast.File{file})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown option") {
+		t.Fatalf("unexpected error: %q", err)
+	}
+}
+
+func TestCollectDeclarationsRejectsNoSetterForProduct(t *testing.T) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "sample.go", "package sample\n// +adtgen:product=A,B;options=no-setter\ntype AB struct{}\n", parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = CollectDeclarations(fset, []*ast.File{file})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no-setter option is only supported for sum declarations") {
+		t.Fatalf("unexpected error: %q", err)
 	}
 }

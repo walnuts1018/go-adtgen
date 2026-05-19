@@ -144,8 +144,9 @@ func buildSumGeneratedType(declaration model.ResolvedDeclaration) (model.Generat
 		Name:           declaration.Declaration.Name,
 		TypeParameters: append([]string(nil), declaration.Declaration.TypeParameters...),
 		Sum: &model.GeneratedSum{
-			Variants:     variants,
-			CommonFields: buildCommonFields(variants, fieldSets, fieldOrders),
+			GenerateSetters: !declaration.Declaration.Options.NoSetter,
+			Variants:        variants,
+			CommonFields:    buildCommonFields(variants, fieldSets, fieldOrders),
 		},
 	}, nil
 }

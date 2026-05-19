@@ -182,6 +182,9 @@ func TestBuildGeneratedTypeBuildsSumMetadataFromEmbeddedCommonFields(t *testing.
 	if field.SetterName != "SetID" {
 		t.Fatalf("field.SetterName = %q, want %q", field.SetterName, "SetID")
 	}
+	if !generated.Sum.GenerateSetters {
+		t.Fatal("generated.Sum.GenerateSetters = false, want true")
+	}
 	if len(field.Paths) != 2 {
 		t.Fatalf("len(field.Paths) = %d, want 2", len(field.Paths))
 	}
@@ -190,6 +193,55 @@ func TestBuildGeneratedTypeBuildsSumMetadataFromEmbeddedCommonFields(t *testing.
 	}
 	if got := field.Paths[1]; len(got) != 2 || got[0] != "Common" || got[1] != "ID" {
 		t.Fatalf("field.Paths[1] = %v, want [Common ID]", got)
+	}
+}
+
+func TestBuildGeneratedTypeDisablesSumSettersWithOption(t *testing.T) {
+	pkg := types.NewPackage("example.com/sample", "sample")
+	hogeType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Hoge", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+	fugaType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Fuga", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+
+	decl := model.ResolvedDeclaration{
+		Declaration: model.Declaration{
+			Kind: model.DeclarationKindSum,
+			Name: "HogeOrFuga",
+			Options: model.DeclarationOptions{
+				NoSetter: true,
+			},
+		},
+		Inputs: []model.ResolvedType{
+			{Expr: "Hoge", Type: hogeType, Struct: hogeType.Underlying().(*types.Struct)},
+			{Expr: "Fuga", Type: fugaType, Struct: fugaType.Underlying().(*types.Struct)},
+		},
+	}
+
+	generated, err := BuildGeneratedType(decl)
+	if err != nil {
+		t.Fatalf("BuildGeneratedType() error = %v", err)
+	}
+	if generated.Sum == nil {
+		t.Fatal("generated.Sum = nil")
+	}
+	if generated.Sum.GenerateSetters {
+		t.Fatal("generated.Sum.GenerateSetters = true, want false")
+	}
+	if len(generated.Sum.CommonFields) != 1 {
+		t.Fatalf("len(generated.Sum.CommonFields) = %d, want 1", len(generated.Sum.CommonFields))
+	}
+	if generated.Sum.CommonFields[0].SetterName != "SetID" {
+		t.Fatalf("generated.Sum.CommonFields[0].SetterName = %q, want %q", generated.Sum.CommonFields[0].SetterName, "SetID")
 	}
 }
 

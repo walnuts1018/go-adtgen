@@ -31,7 +31,11 @@ func CollectDeclarations(fset *token.FileSet, files []*ast.File) ([]model.Declar
 				if !ok {
 					continue
 				}
-				kind, expression, ok := declarationSpecForTypeSpec(genDecl, typeSpec)
+				kind, expression, options, ok, err := declarationSpecForTypeSpec(genDecl, typeSpec)
+				if err != nil {
+					pos := fset.Position(typeSpec.Pos())
+					return nil, fmt.Errorf("%s: %w", pos, err)
+				}
 				if !ok {
 					continue
 				}
@@ -50,6 +54,7 @@ func CollectDeclarations(fset *token.FileSet, files []*ast.File) ([]model.Declar
 					Kind:           kind,
 					Name:           typeSpec.Name.Name,
 					Expression:     expression,
+					Options:        options,
 					TypeParameters: collectTypeParameters(fset, typeSpec.TypeParams),
 					Position:       position,
 					SourceFilename: position.Filename,
@@ -61,45 +66,130 @@ func CollectDeclarations(fset *token.FileSet, files []*ast.File) ([]model.Declar
 	return declarations, nil
 }
 
-func declarationSpecForTypeSpec(genDecl *ast.GenDecl, typeSpec *ast.TypeSpec) (model.DeclarationKind, string, bool) {
-	if kind, expression, ok := findDeclarationSpec(typeSpec.Doc); ok {
-		return kind, expression, true
+func declarationSpecForTypeSpec(genDecl *ast.GenDecl, typeSpec *ast.TypeSpec) (model.DeclarationKind, string, model.DeclarationOptions, bool, error) {
+	if kind, expression, options, ok, err := findDeclarationSpec(typeSpec.Doc); ok || err != nil {
+		return kind, expression, options, ok, err
 	}
-	if kind, expression, ok := findDeclarationSpec(typeSpec.Comment); ok {
-		return kind, expression, true
+	if kind, expression, options, ok, err := findDeclarationSpec(typeSpec.Comment); ok || err != nil {
+		return kind, expression, options, ok, err
 	}
 	if len(genDecl.Specs) == 1 {
 		return findDeclarationSpec(genDecl.Doc)
 	}
-	return "", "", false
+	return "", "", model.DeclarationOptions{}, false, nil
 }
 
-func findDeclarationSpec(group *ast.CommentGroup) (model.DeclarationKind, string, bool) {
+func findDeclarationSpec(group *ast.CommentGroup) (model.DeclarationKind, string, model.DeclarationOptions, bool, error) {
 	if group == nil {
-		return "", "", false
+		return "", "", model.DeclarationOptions{}, false, nil
 	}
 
 	for _, comment := range group.List {
 		text := strings.TrimSpace(strings.TrimPrefix(comment.Text, "//"))
-		fields := strings.Fields(text)
-		if len(fields) == 0 {
+		if text == "" {
 			continue
 		}
-		directive := fields[0]
+
+		directive := ""
 		var kind model.DeclarationKind
-		switch directive {
-		case productDirective:
+		switch {
+		case strings.HasPrefix(text, productDirective):
+			if len(text) > len(productDirective) && text[len(productDirective)] != '=' {
+				continue
+			}
+			directive = productDirective
 			kind = model.DeclarationKindProduct
-		case sumDirective:
+		case strings.HasPrefix(text, sumDirective):
+			if len(text) > len(sumDirective) && text[len(sumDirective)] != '=' {
+				continue
+			}
+			directive = sumDirective
 			kind = model.DeclarationKindSum
 		default:
 			continue
 		}
-		expression := strings.TrimSpace(strings.TrimPrefix(text, directive))
-		return kind, expression, true
+		expression, options, err := parseDirectiveSpec(kind, strings.TrimSpace(strings.TrimPrefix(text, directive)))
+		if err != nil {
+			return "", "", model.DeclarationOptions{}, false, err
+		}
+		return kind, expression, options, true, nil
 	}
 
-	return "", "", false
+	return "", "", model.DeclarationOptions{}, false, nil
+}
+
+func parseDirectiveSpec(kind model.DeclarationKind, spec string) (string, model.DeclarationOptions, error) {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		return "", model.DeclarationOptions{}, fmt.Errorf("missing directive body")
+	}
+
+	segments := strings.Split(spec, ";")
+	expressionSegment := strings.TrimSpace(segments[0])
+	expression, err := parseExpressionSegment(expressionSegment)
+	if err != nil {
+		return "", model.DeclarationOptions{}, err
+	}
+
+	var options model.DeclarationOptions
+	for _, segment := range segments[1:] {
+		key, value, ok := strings.Cut(strings.TrimSpace(segment), "=")
+		if !ok {
+			return "", model.DeclarationOptions{}, fmt.Errorf("malformed directive segment %q", segment)
+		}
+		if key != "options" {
+			return "", model.DeclarationOptions{}, fmt.Errorf("unknown directive key %q", key)
+		}
+		parsed, err := parseDeclarationOptions(value)
+		if err != nil {
+			return "", model.DeclarationOptions{}, err
+		}
+		options.NoSetter = options.NoSetter || parsed.NoSetter
+	}
+
+	if options.NoSetter && kind != model.DeclarationKindSum {
+		return "", model.DeclarationOptions{}, fmt.Errorf("no-setter option is only supported for sum declarations")
+	}
+
+	return expression, options, nil
+}
+
+func parseExpressionSegment(segment string) (string, error) {
+	_, value, ok := strings.Cut(segment, "=")
+	if !ok {
+		return "", fmt.Errorf("missing directive expression")
+	}
+	if strings.TrimSpace(value) == "" {
+		return "", fmt.Errorf("missing directive expression")
+	}
+
+	inputs := strings.Split(value, ",")
+	parts := make([]string, 0, len(inputs))
+	for _, input := range inputs {
+		part := strings.TrimSpace(input)
+		if part == "" {
+			return "", fmt.Errorf("empty directive input")
+		}
+		parts = append(parts, part)
+	}
+	return strings.Join(parts, " "), nil
+}
+
+func parseDeclarationOptions(value string) (model.DeclarationOptions, error) {
+	var options model.DeclarationOptions
+	for _, raw := range strings.Split(value, ",") {
+		option := strings.TrimSpace(raw)
+		if option == "" {
+			return model.DeclarationOptions{}, fmt.Errorf("empty option")
+		}
+		switch option {
+		case "no-setter":
+			options.NoSetter = true
+		default:
+			return model.DeclarationOptions{}, fmt.Errorf("unknown option %q", option)
+		}
+	}
+	return options, nil
 }
 
 func collectTypeParameters(fset *token.FileSet, fieldList *ast.FieldList) []string {

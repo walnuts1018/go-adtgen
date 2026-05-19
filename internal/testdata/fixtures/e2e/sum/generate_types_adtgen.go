@@ -15,7 +15,6 @@ type HogeOrFuga interface {
 	AsHoge() (Hoge, bool)
 	AsFuga() (Fuga, bool)
 	GetID() string
-	SetID(string)
 }
 
 func (*Hoge) isHogeOrFuga() {}
@@ -41,10 +40,6 @@ func (x *Hoge) GetID() string {
 	return x.Common.ID
 }
 
-func (x *Hoge) SetID(v string) {
-	x.Common.ID = v
-}
-
 func (*Fuga) isHogeOrFuga() {}
 
 func (x *Fuga) AsHoge() (Hoge, bool) {
@@ -66,10 +61,6 @@ func (x *Fuga) AsFuga() (Fuga, bool) {
 
 func (x *Fuga) GetID() string {
 	return x.Common.ID
-}
-
-func (x *Fuga) SetID(v string) {
-	x.Common.ID = v
 }
 
 func MatchHogeOrFuga[R any](v HogeOrFuga, whenHoge func(Hoge) R, whenFuga func(Fuga) R) R {

@@ -222,11 +222,13 @@ func renderSumType(buf *bytes.Buffer, generatedType model.GeneratedType, qualifi
 		buf.WriteString("() ")
 		buf.WriteString(types.TypeString(field.Type, qualifier))
 		buf.WriteString("\n")
-		buf.WriteString("\t")
-		buf.WriteString(field.SetterName)
-		buf.WriteString("(")
-		buf.WriteString(types.TypeString(field.Type, qualifier))
-		buf.WriteString(")\n")
+		if generatedType.Sum.GenerateSetters {
+			buf.WriteString("\t")
+			buf.WriteString(field.SetterName)
+			buf.WriteString("(")
+			buf.WriteString(types.TypeString(field.Type, qualifier))
+			buf.WriteString(")\n")
+		}
 	}
 	buf.WriteString("}\n\n")
 
@@ -286,15 +288,17 @@ func renderSumVariantMethods(buf *bytes.Buffer, generatedType model.GeneratedTyp
 		buf.WriteString(path)
 		buf.WriteString("\n}\n\n")
 
-		buf.WriteString("func (x ")
-		buf.WriteString(receiverType)
-		buf.WriteString(") ")
-		buf.WriteString(field.SetterName)
-		buf.WriteString("(v ")
-		buf.WriteString(types.TypeString(field.Type, qualifier))
-		buf.WriteString(") {\n\t")
-		buf.WriteString(path)
-		buf.WriteString(" = v\n}\n\n")
+		if generatedType.Sum.GenerateSetters {
+			buf.WriteString("func (x ")
+			buf.WriteString(receiverType)
+			buf.WriteString(") ")
+			buf.WriteString(field.SetterName)
+			buf.WriteString("(v ")
+			buf.WriteString(types.TypeString(field.Type, qualifier))
+			buf.WriteString(") {\n\t")
+			buf.WriteString(path)
+			buf.WriteString(" = v\n}\n\n")
+		}
 	}
 
 	_ = valueType

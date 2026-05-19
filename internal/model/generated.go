@@ -27,8 +27,9 @@ type GeneratedField struct {
 }
 
 type GeneratedSum struct {
-	Variants     []GeneratedSumVariant
-	CommonFields []GeneratedCommonField
+	GenerateSetters bool
+	Variants        []GeneratedSumVariant
+	CommonFields    []GeneratedCommonField
 }
 
 type GeneratedSumVariant struct {

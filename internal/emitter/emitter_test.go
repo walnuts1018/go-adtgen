@@ -198,6 +198,7 @@ func TestRenderIncludesSumInterfaceMethodsAndHelpers(t *testing.T) {
 			Kind: model.DeclarationKindSum,
 			Name: "HogeOrFuga",
 			Sum: &model.GeneratedSum{
+				GenerateSetters: true,
 				Variants: []model.GeneratedSumVariant{
 					{Expression: "Hoge", Type: hogeType, TypeName: "Hoge"},
 					{Expression: "Fuga", Type: fugaType, TypeName: "Fuga"},
@@ -243,6 +244,62 @@ func TestRenderIncludesSumInterfaceMethodsAndHelpers(t *testing.T) {
 		if !strings.Contains(src, want) {
 			t.Fatalf("RenderForPackage() output missing %q:\n%s", want, src)
 		}
+	}
+}
+
+func TestRenderOmitsSumSettersWhenDisabled(t *testing.T) {
+	pkg := types.NewPackage("example.com/sample", "sample")
+	hogeType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Hoge", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+	fugaType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, "Fuga", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+
+	src, err := RenderForPackage("example.com/sample", "sample", []model.GeneratedType{
+		{
+			Kind: model.DeclarationKindSum,
+			Name: "HogeOrFuga",
+			Sum: &model.GeneratedSum{
+				GenerateSetters: false,
+				Variants: []model.GeneratedSumVariant{
+					{Expression: "Hoge", Type: hogeType, TypeName: "Hoge"},
+					{Expression: "Fuga", Type: fugaType, TypeName: "Fuga"},
+				},
+				CommonFields: []model.GeneratedCommonField{
+					{
+						Name:       "ID",
+						Type:       types.Typ[types.String],
+						GetterName: "GetID",
+						SetterName: "SetID",
+						Paths: [][]string{
+							{"ID"},
+							{"ID"},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("RenderForPackage() error = %v", err)
+	}
+	if strings.Contains(src, "SetID(string)") {
+		t.Fatalf("RenderForPackage() unexpectedly emitted setter in interface:\n%s", src)
+	}
+	if strings.Contains(src, "func (x *Hoge) SetID(v string)") {
+		t.Fatalf("RenderForPackage() unexpectedly emitted setter method:\n%s", src)
+	}
+	if !strings.Contains(src, "GetID() string") {
+		t.Fatalf("RenderForPackage() output missing getter:\n%s", src)
 	}
 }
 

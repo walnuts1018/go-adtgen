@@ -2,5 +2,5 @@
 
 package multi
 
-// +adtgen:sum Left Right
+// +adtgen:sum=Left,Right
 type Alpha struct{}

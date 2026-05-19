@@ -13,7 +13,12 @@ type Declaration struct {
 	Kind           DeclarationKind
 	Name           string
 	Expression     string
+	Options        DeclarationOptions
 	TypeParameters []string
 	Position       token.Position
 	SourceFilename string
+}
+
+type DeclarationOptions struct {
+	NoSetter bool
 }

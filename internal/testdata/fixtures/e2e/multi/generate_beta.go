@@ -2,5 +2,5 @@
 
 package multi
 
-// +adtgen:product Primary Secondary
+// +adtgen:product=Primary,Secondary
 type Beta struct{}
