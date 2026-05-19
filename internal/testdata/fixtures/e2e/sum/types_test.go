@@ -14,6 +14,9 @@ func TestGeneratedSumHelpersAndJSON(t *testing.T) {
 	if got := value.GetID(); got != "h-1" {
 		t.Fatalf("value.GetID() = %q, want %q", got, "h-1")
 	}
+	if got := value.String(); got != "walnut" {
+		t.Fatalf("value.String() = %q, want %q", got, "walnut")
+	}
 
 	if _, ok := value.(interface{ SetID(string) }); ok {
 		t.Fatal("value unexpectedly implements SetID(string)")
@@ -53,6 +56,9 @@ func TestGeneratedSumHelpersAndJSON(t *testing.T) {
 	}
 	if got, ok := decoded.AsHoge(); !ok || got.ID != "h-1" || got.Name != "walnut" {
 		t.Fatalf("decoded.AsHoge() = (%+v, %t), want ID=h-1 Name=walnut", got, ok)
+	}
+	if got := decoded.String(); got != "walnut" {
+		t.Fatalf("decoded.String() = %q, want %q", got, "walnut")
 	}
 }
 

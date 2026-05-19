@@ -3,4 +3,6 @@
 package sum
 
 // +adtgen:sum=Hoge,Fuga;options=no-setter
-type HogeOrFuga interface{}
+type HogeOrFuga interface {
+	String() string
+}

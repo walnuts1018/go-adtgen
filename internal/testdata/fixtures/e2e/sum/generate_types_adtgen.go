@@ -12,6 +12,7 @@ import (
 
 type HogeOrFuga interface {
 	isHogeOrFuga()
+	String() string
 	AsHoge() (Hoge, bool)
 	AsFuga() (Fuga, bool)
 	GetID() string

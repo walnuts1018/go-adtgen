@@ -21,7 +21,9 @@ go get -tool github.com/walnuts1018/go-adtgen
    package mypkg
 
    // +adtgen:sum=StructA,StructB;options=no-setter
-   type MySumType struct{}
+   type MySumType interface {
+       String() string
+   }
 
    // +adtgen:product=Struct1,StructB
    type MyProductType struct{}
@@ -45,6 +47,8 @@ go get -tool github.com/walnuts1018/go-adtgen
 
 `// +adtgen:sum=<Variant1>,<Variant2>...` を使用すると、指定した構造体を候補とするインターフェースが生成されます。
 候補として利用できる構造体は、同一パッケージ内で定義されている必要があります。
+sum 宣言そのものは `struct{}` ではなく `interface` で書く必要があります。
+その interface に独自メソッドを書いた場合、生成される sum interface にもそのメソッドが含まれます。
 
 ### 定義例
 
@@ -53,7 +57,9 @@ type VariantA struct { Name string }
 type VariantB struct { Value int }
 
 // +adtgen:sum=VariantA,VariantB
-type MySumType struct{}
+type MySumType interface {
+    String() string
+}
 ```
 
 ### 生成される主な機能
@@ -88,6 +94,23 @@ if a, ok := val.AsVariantA(); ok {
 #### 共通フィールドへのアクセス
 
 全てのバリアントが共通のフィールド（埋め込み構造体など）を持っている場合、インターフェースに `Get<Field>` および `Set<Field>` メソッドが生成され、バリアントを意識せずにアクセスできます。`// +adtgen:sum=...;options=no-setter` を使うと `Set<Field>` は生成されません。
+
+#### 独自メソッドの宣言
+
+sum 宣言 interface に書いた独自メソッドは、生成される interface に含まれます。`is<Type>()` や `As<Variant>()` などの補助メソッドは自動生成されますが、独自メソッド本体は各バリアント側で実装してください。
+
+```go
+type VariantA struct { Name string }
+func (v *VariantA) String() string { return v.Name }
+
+type VariantB struct { Value int }
+func (v *VariantB) String() string { return strconv.Itoa(v.Value) }
+
+// +adtgen:sum=VariantA,VariantB
+type MySumType interface {
+    String() string
+}
+```
 
 ## 直積型 (Product Types) の使い方
 
