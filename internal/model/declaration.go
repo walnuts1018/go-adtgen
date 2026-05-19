@@ -10,15 +10,21 @@ const (
 )
 
 type Declaration struct {
-	Kind           DeclarationKind
-	Name           string
-	Expression     string
-	Options        DeclarationOptions
-	TypeParameters []string
-	Position       token.Position
-	SourceFilename string
+	Kind             DeclarationKind
+	Name             string
+	Expression       string
+	Options          DeclarationOptions
+	TypeParameters   []string
+	InterfaceMethods []DeclaredInterfaceMethod
+	Position         token.Position
+	SourceFilename   string
 }
 
 type DeclarationOptions struct {
 	NoSetter bool
+}
+
+type DeclaredInterfaceMethod struct {
+	Name      string
+	Signature string
 }

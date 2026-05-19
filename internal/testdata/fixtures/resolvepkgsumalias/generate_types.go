@@ -3,4 +3,4 @@
 package resolvepkgsumalias
 
 // +adtgen:sum=AliasHoge,Fuga
-type AliasOrFuga struct{}
+type AliasOrFuga interface{}

@@ -43,21 +43,22 @@ func CollectDeclarations(fset *token.FileSet, files []*ast.File) ([]model.Declar
 					pos := fset.Position(typeSpec.Pos())
 					return nil, fmt.Errorf("%s: annotated declaration %s must not be a type alias", pos, typeSpec.Name.Name)
 				}
-				structType, ok := typeSpec.Type.(*ast.StructType)
-				if !ok || structType.Fields == nil || len(structType.Fields.List) != 0 {
+				interfaceMethods, err := validateDeclarationShape(fset, typeSpec, kind)
+				if err != nil {
 					pos := fset.Position(typeSpec.Pos())
-					return nil, fmt.Errorf("%s: annotated declaration %s must be an empty struct", pos, typeSpec.Name.Name)
+					return nil, fmt.Errorf("%s: %w", pos, err)
 				}
 
 				position := fset.Position(typeSpec.Pos())
 				declarations = append(declarations, model.Declaration{
-					Kind:           kind,
-					Name:           typeSpec.Name.Name,
-					Expression:     expression,
-					Options:        options,
-					TypeParameters: collectTypeParameters(fset, typeSpec.TypeParams),
-					Position:       position,
-					SourceFilename: position.Filename,
+					Kind:             kind,
+					Name:             typeSpec.Name.Name,
+					Expression:       expression,
+					Options:          options,
+					TypeParameters:   collectTypeParameters(fset, typeSpec.TypeParams),
+					InterfaceMethods: interfaceMethods,
+					Position:         position,
+					SourceFilename:   position.Filename,
 				})
 			}
 		}
@@ -210,6 +211,44 @@ func collectTypeParameters(fset *token.FileSet, fieldList *ast.FieldList) []stri
 	}
 
 	return params
+}
+
+func validateDeclarationShape(fset *token.FileSet, typeSpec *ast.TypeSpec, kind model.DeclarationKind) ([]model.DeclaredInterfaceMethod, error) {
+	if kind == model.DeclarationKindSum {
+		return collectDeclaredInterfaceMethods(fset, typeSpec)
+	}
+
+	structType, ok := typeSpec.Type.(*ast.StructType)
+	if !ok || structType.Fields == nil || len(structType.Fields.List) != 0 {
+		return nil, fmt.Errorf("annotated declaration %s must be an empty struct", typeSpec.Name.Name)
+	}
+	return nil, nil
+}
+
+func collectDeclaredInterfaceMethods(fset *token.FileSet, typeSpec *ast.TypeSpec) ([]model.DeclaredInterfaceMethod, error) {
+	interfaceType, ok := typeSpec.Type.(*ast.InterfaceType)
+	if !ok {
+		return nil, fmt.Errorf("sum declaration %s must be an interface", typeSpec.Name.Name)
+	}
+	if interfaceType.Methods == nil || len(interfaceType.Methods.List) == 0 {
+		return nil, nil
+	}
+
+	methods := make([]model.DeclaredInterfaceMethod, 0, len(interfaceType.Methods.List))
+	for _, field := range interfaceType.Methods.List {
+		if len(field.Names) != 1 {
+			return nil, fmt.Errorf("sum declaration %s must only declare methods", typeSpec.Name.Name)
+		}
+		funcType, ok := field.Type.(*ast.FuncType)
+		if !ok {
+			return nil, fmt.Errorf("sum declaration %s must only declare methods", typeSpec.Name.Name)
+		}
+		methods = append(methods, model.DeclaredInterfaceMethod{
+			Name:      field.Names[0].Name,
+			Signature: renderNode(fset, funcType),
+		})
+	}
+	return methods, nil
 }
 
 func renderNode(fset *token.FileSet, node ast.Node) string {

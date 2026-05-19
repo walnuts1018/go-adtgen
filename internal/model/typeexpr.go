@@ -13,8 +13,14 @@ type ResolvedType struct {
 }
 
 type ResolvedDeclaration struct {
-	Declaration Declaration
-	Inputs      []ResolvedType
+	Declaration      Declaration
+	Inputs           []ResolvedType
+	InterfaceMethods []ResolvedInterfaceMethod
+}
+
+type ResolvedInterfaceMethod struct {
+	Name      string
+	Signature *types.Signature
 }
 
 func (t ResolvedType) ReferencedDeclarationNames(localNames map[string]struct{}) ([]string, error) {

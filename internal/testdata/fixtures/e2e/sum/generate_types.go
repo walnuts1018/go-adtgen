@@ -3,4 +3,4 @@
 package sum
 
 // +adtgen:sum=Hoge,Fuga;options=no-setter
-type HogeOrFuga struct{}
+type HogeOrFuga interface{}

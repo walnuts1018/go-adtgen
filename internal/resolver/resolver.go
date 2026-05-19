@@ -67,9 +67,15 @@ func ResolveDeclarations(pkg *loader.Package, declarations []model.Declaration) 
 			inputs = append(inputs, input)
 		}
 
+		interfaceMethods, err := resolveInterfaceMethods(pkg, declaration)
+		if err != nil {
+			return nil, err
+		}
+
 		resolved = append(resolved, model.ResolvedDeclaration{
-			Declaration: declaration,
-			Inputs:      inputs,
+			Declaration:      declaration,
+			Inputs:           inputs,
+			InterfaceMethods: interfaceMethods,
 		})
 	}
 
@@ -153,6 +159,14 @@ func structTypeOf(typ types.Type) (*types.Struct, bool) {
 }
 
 func declarationEvalPos(pkg *loader.Package, declaration model.Declaration) (token.Pos, error) {
+	typeSpec, err := findTypeSpec(pkg, declaration)
+	if err != nil {
+		return token.NoPos, err
+	}
+	return typeSpec.Type.Pos(), nil
+}
+
+func findTypeSpec(pkg *loader.Package, declaration model.Declaration) (*ast.TypeSpec, error) {
 	for _, file := range pkg.SyntaxFiles() {
 		filename := pkg.Fset.Position(file.Pos()).Filename
 		if filename != declaration.Position.Filename {
@@ -172,13 +186,50 @@ func declarationEvalPos(pkg *loader.Package, declaration model.Declaration) (tok
 
 				pos := pkg.Fset.Position(typeSpec.Pos())
 				if pos.Line == declaration.Position.Line && pos.Column == declaration.Position.Column {
-					return typeSpec.Type.Pos(), nil
+					return typeSpec, nil
 				}
 			}
 		}
 	}
 
-	return token.NoPos, fmt.Errorf("%s: could not locate declaration %s in loaded syntax", declaration.Position, declaration.Name)
+	return nil, fmt.Errorf("%s: could not locate declaration %s in loaded syntax", declaration.Position, declaration.Name)
+}
+
+func resolveInterfaceMethods(pkg *loader.Package, declaration model.Declaration) ([]model.ResolvedInterfaceMethod, error) {
+	if declaration.Kind != model.DeclarationKindSum || len(declaration.InterfaceMethods) == 0 {
+		return nil, nil
+	}
+
+	typeSpec, err := findTypeSpec(pkg, declaration)
+	if err != nil {
+		return nil, err
+	}
+
+	interfaceType, ok := typeSpec.Type.(*ast.InterfaceType)
+	if !ok {
+		return nil, fmt.Errorf("%s: sum declaration %s must be an interface", declaration.Position, declaration.Name)
+	}
+
+	methods := make([]model.ResolvedInterfaceMethod, 0, len(interfaceType.Methods.List))
+	for _, field := range interfaceType.Methods.List {
+		if len(field.Names) != 1 {
+			return nil, fmt.Errorf("%s: sum declaration %s must only declare methods", declaration.Position, declaration.Name)
+		}
+		tv, ok := pkg.Package.TypesInfo.Types[field.Type]
+		if !ok {
+			return nil, fmt.Errorf("%s: could not resolve method %s on sum declaration %s", declaration.Position, field.Names[0].Name, declaration.Name)
+		}
+		signature, ok := tv.Type.(*types.Signature)
+		if !ok {
+			return nil, fmt.Errorf("%s: method %s on sum declaration %s is not a function signature", declaration.Position, field.Names[0].Name, declaration.Name)
+		}
+		methods = append(methods, model.ResolvedInterfaceMethod{
+			Name:      field.Names[0].Name,
+			Signature: signature,
+		})
+	}
+
+	return methods, nil
 }
 
 func splitExpression(expr string) ([]string, error) {

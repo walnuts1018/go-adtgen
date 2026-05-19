@@ -32,6 +32,50 @@ type AB struct {
 	}
 }
 
+func TestCollectDeclarationsRejectsSumStructDeclarations(t *testing.T) {
+	fset := token.NewFileSet()
+	file, err := goparser.ParseFile(fset, "sample.go", `package sample
+// +adtgen:sum=Hoge,Fuga
+type HogeOrFuga struct{}
+`, goparser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = CollectDeclarations(fset, []*ast.File{file})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "sample.go:3:6") {
+		t.Fatalf("expected position-qualified error, got %q", err)
+	}
+	if !strings.Contains(err.Error(), "sum declaration HogeOrFuga must be an interface") {
+		t.Fatalf("unexpected error: %q", err)
+	}
+}
+
+func TestCollectDeclarationsRejectsSumInterfaceEmbeddings(t *testing.T) {
+	fset := token.NewFileSet()
+	file, err := goparser.ParseFile(fset, "sample.go", `package sample
+type Named interface { String() string }
+// +adtgen:sum=Hoge,Fuga
+type HogeOrFuga interface {
+	Named
+}
+`, goparser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = CollectDeclarations(fset, []*ast.File{file})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "sum declaration HogeOrFuga must only declare methods") {
+		t.Fatalf("unexpected error: %q", err)
+	}
+}
+
 func TestCollectDeclarationsCapturesPositionAndTypeParameters(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := goparser.ParseFile(fset, "sample.go", `package sample

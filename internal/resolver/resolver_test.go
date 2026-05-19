@@ -262,6 +262,15 @@ func TestResolveDeclarationsResolvesSamePackageSumTypes(t *testing.T) {
 	if resolved[0].Inputs[1].Expr != "Fuga" {
 		t.Fatalf("got second expr %q, want %q", resolved[0].Inputs[1].Expr, "Fuga")
 	}
+	if len(resolved[0].InterfaceMethods) != 1 {
+		t.Fatalf("got %d interface methods, want 1", len(resolved[0].InterfaceMethods))
+	}
+	if resolved[0].InterfaceMethods[0].Name != "WriteTo" {
+		t.Fatalf("got interface method %q, want %q", resolved[0].InterfaceMethods[0].Name, "WriteTo")
+	}
+	if got := types.TypeString(resolved[0].InterfaceMethods[0].Signature, nil); got != "func(io.Writer) (int64, error)" {
+		t.Fatalf("got interface method signature %q, want %q", got, "func(io.Writer) (int64, error)")
+	}
 }
 
 func TestResolveDeclarationsRejectsSumTypesFromExternalPackage(t *testing.T) {

@@ -76,6 +76,9 @@ func collectImports(pkgName string, generated []model.GeneratedType) []string {
 			seen["encoding/json"] = struct{}{}
 			seen["fmt"] = struct{}{}
 			seen["io"] = struct{}{}
+			for _, method := range generatedType.Sum.InterfaceMethods {
+				collectTypeImports(pkgName, method.Signature, seen)
+			}
 			for _, variant := range generatedType.Sum.Variants {
 				collectTypeImports(pkgName, variant.Type, seen)
 			}
@@ -209,6 +212,12 @@ func renderSumType(buf *bytes.Buffer, generatedType model.GeneratedType, qualifi
 	buf.WriteString("\tis")
 	buf.WriteString(generatedType.Name)
 	buf.WriteString("()\n")
+	for _, method := range generatedType.Sum.InterfaceMethods {
+		buf.WriteString("\t")
+		buf.WriteString(method.Name)
+		buf.WriteString(renderInterfaceMethodSignature(method.Signature, qualifier))
+		buf.WriteString("\n")
+	}
 	for _, variant := range generatedType.Sum.Variants {
 		buf.WriteString("\tAs")
 		buf.WriteString(variant.TypeName)
@@ -240,6 +249,15 @@ func renderSumType(buf *bytes.Buffer, generatedType model.GeneratedType, qualifi
 	renderSumMatchFunctions(buf, generatedType, qualifier)
 	buf.WriteString("\n")
 	renderSumUnmarshalFunction(buf, generatedType, qualifier)
+}
+
+func renderInterfaceMethodSignature(signature *types.Signature, qualifier types.Qualifier) string {
+	if signature == nil {
+		return "()"
+	}
+
+	rendered := types.TypeString(signature, qualifier)
+	return strings.TrimPrefix(rendered, "func")
 }
 
 func renderSumVariantMethods(buf *bytes.Buffer, generatedType model.GeneratedType, variant model.GeneratedSumVariant, qualifier types.Qualifier) {

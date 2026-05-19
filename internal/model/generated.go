@@ -27,9 +27,15 @@ type GeneratedField struct {
 }
 
 type GeneratedSum struct {
-	GenerateSetters bool
-	Variants        []GeneratedSumVariant
-	CommonFields    []GeneratedCommonField
+	GenerateSetters  bool
+	InterfaceMethods []GeneratedInterfaceMethod
+	Variants         []GeneratedSumVariant
+	CommonFields     []GeneratedCommonField
+}
+
+type GeneratedInterfaceMethod struct {
+	Name      string
+	Signature *types.Signature
 }
 
 type GeneratedSumVariant struct {

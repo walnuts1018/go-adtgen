@@ -3,4 +3,4 @@
 package multi
 
 // +adtgen:sum=Left,Right
-type Alpha struct{}
+type Alpha interface{}

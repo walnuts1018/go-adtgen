@@ -47,7 +47,7 @@ func TestCollectDeclarationsFindsSumAnnotation(t *testing.T) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", `package sample
 // +adtgen:sum=Hoge,Fuga
-type HogeOrFuga struct{}
+type HogeOrFuga interface{}
 `, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
@@ -68,6 +68,43 @@ type HogeOrFuga struct{}
 	}
 	if decls[0].Expression != "Hoge Fuga" {
 		t.Fatalf("got %q, want %q", decls[0].Expression, "Hoge Fuga")
+	}
+}
+
+func TestCollectDeclarationsCapturesSumInterfaceMethods(t *testing.T) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "sample.go", `package sample
+// +adtgen:sum=Hoge,Fuga
+type HogeOrFuga interface{
+	String() string
+	WriteTo(io.Writer) (int64, error)
+}
+`, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decls, err := CollectDeclarations(fset, []*ast.File{file})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(decls) != 1 {
+		t.Fatalf("got %d declarations, want 1", len(decls))
+	}
+	if len(decls[0].InterfaceMethods) != 2 {
+		t.Fatalf("got %d interface methods, want 2", len(decls[0].InterfaceMethods))
+	}
+	if decls[0].InterfaceMethods[0].Name != "String" {
+		t.Fatalf("got first method name %q, want %q", decls[0].InterfaceMethods[0].Name, "String")
+	}
+	if decls[0].InterfaceMethods[0].Signature != "func() string" {
+		t.Fatalf("got first method signature %q, want %q", decls[0].InterfaceMethods[0].Signature, "func() string")
+	}
+	if decls[0].InterfaceMethods[1].Name != "WriteTo" {
+		t.Fatalf("got second method name %q, want %q", decls[0].InterfaceMethods[1].Name, "WriteTo")
+	}
+	if decls[0].InterfaceMethods[1].Signature != "func(io.Writer) (int64, error)" {
+		t.Fatalf("got second method signature %q, want %q", decls[0].InterfaceMethods[1].Signature, "func(io.Writer) (int64, error)")
 	}
 }
 
@@ -185,7 +222,7 @@ type AB struct{}
 
 func TestCollectDeclarationsParsesOptions(t *testing.T) {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "sample.go", "package sample\n// +adtgen:sum=Hoge,Fuga;options=no-setter\ntype HogeOrFuga struct{}\n", parser.ParseComments)
+	file, err := parser.ParseFile(fset, "sample.go", "package sample\n// +adtgen:sum=Hoge,Fuga;options=no-setter\ntype HogeOrFuga interface{}\n", parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}

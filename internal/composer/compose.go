@@ -144,11 +144,27 @@ func buildSumGeneratedType(declaration model.ResolvedDeclaration) (model.Generat
 		Name:           declaration.Declaration.Name,
 		TypeParameters: append([]string(nil), declaration.Declaration.TypeParameters...),
 		Sum: &model.GeneratedSum{
-			GenerateSetters: !declaration.Declaration.Options.NoSetter,
-			Variants:        variants,
-			CommonFields:    buildCommonFields(variants, fieldSets, fieldOrders),
+			GenerateSetters:  !declaration.Declaration.Options.NoSetter,
+			InterfaceMethods: buildGeneratedInterfaceMethods(declaration.InterfaceMethods),
+			Variants:         variants,
+			CommonFields:     buildCommonFields(variants, fieldSets, fieldOrders),
 		},
 	}, nil
+}
+
+func buildGeneratedInterfaceMethods(methods []model.ResolvedInterfaceMethod) []model.GeneratedInterfaceMethod {
+	if len(methods) == 0 {
+		return nil
+	}
+
+	generated := make([]model.GeneratedInterfaceMethod, 0, len(methods))
+	for _, method := range methods {
+		generated = append(generated, model.GeneratedInterfaceMethod{
+			Name:      method.Name,
+			Signature: method.Signature,
+		})
+	}
+	return generated
 }
 
 func findComposedField(fields []FieldSpec, target FieldSpec) int {

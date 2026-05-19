@@ -144,6 +144,12 @@ func TestBuildGeneratedTypeBuildsSumMetadataFromEmbeddedCommonFields(t *testing.
 			Kind: model.DeclarationKindSum,
 			Name: generatedTypeHogeOrFuga,
 		},
+		InterfaceMethods: []model.ResolvedInterfaceMethod{
+			{
+				Name:      "String",
+				Signature: types.NewSignatureType(nil, nil, nil, nil, types.NewTuple(types.NewVar(token.NoPos, nil, "", types.Typ[types.String])), false),
+			},
+		},
 		Inputs: []model.ResolvedType{
 			{Expr: generatedExprHoge, Type: hogeType, Struct: hogeType.Underlying().(*types.Struct)},
 			{Expr: generatedExprFuga, Type: fugaType, Struct: fugaType.Underlying().(*types.Struct)},
@@ -159,6 +165,12 @@ func TestBuildGeneratedTypeBuildsSumMetadataFromEmbeddedCommonFields(t *testing.
 	}
 	if generated.Sum == nil {
 		t.Fatal("generated.Sum = nil")
+	}
+	if len(generated.Sum.InterfaceMethods) != 1 {
+		t.Fatalf("len(generated.Sum.InterfaceMethods) = %d, want 1", len(generated.Sum.InterfaceMethods))
+	}
+	if generated.Sum.InterfaceMethods[0].Name != "String" {
+		t.Fatalf("generated.Sum.InterfaceMethods[0].Name = %q, want %q", generated.Sum.InterfaceMethods[0].Name, "String")
 	}
 	if len(generated.Sum.Variants) != 2 {
 		t.Fatalf("len(generated.Sum.Variants) = %d, want 2", len(generated.Sum.Variants))

@@ -199,6 +199,12 @@ func TestRenderIncludesSumInterfaceMethodsAndHelpers(t *testing.T) {
 			Name: "HogeOrFuga",
 			Sum: &model.GeneratedSum{
 				GenerateSetters: true,
+				InterfaceMethods: []model.GeneratedInterfaceMethod{
+					{
+						Name:      "String",
+						Signature: types.NewSignatureType(nil, nil, nil, nil, types.NewTuple(types.NewVar(token.NoPos, nil, "", types.Typ[types.String])), false),
+					},
+				},
 				Variants: []model.GeneratedSumVariant{
 					{Expression: "Hoge", Type: hogeType, TypeName: "Hoge"},
 					{Expression: "Fuga", Type: fugaType, TypeName: "Fuga"},
@@ -226,6 +232,7 @@ func TestRenderIncludesSumInterfaceMethodsAndHelpers(t *testing.T) {
 		"import (\n\t\"bytes\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"io\"\n)",
 		"type HogeOrFuga interface {",
 		"isHogeOrFuga()",
+		"String() string",
 		"AsHoge() (Hoge, bool)",
 		"AsFuga() (Fuga, bool)",
 		"GetID() string",
