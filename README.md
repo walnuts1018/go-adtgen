@@ -10,7 +10,7 @@ go get -tool github.com/walnuts1018/go-adtgen
 
 ## 基本的な使い方
 
-1. **生成用のファイルを作成する**
+1. 生成用のファイルを作成する
    ビルドタグ `//go:build adtgen_generate` を指定したファイル（例: `generate_types.go`）を作成し、生成したい型の定義を記述します。
 
    直和型を生成するには `// +adtgen:sum=<Variant1>,<Variant2>...`、直積型を生成するには `// +adtgen:product=<Struct1>,<Struct2>...` を使います。`sum` では `;options=no-setter` を付けると setter 生成を無効化できます。
@@ -29,14 +29,14 @@ go get -tool github.com/walnuts1018/go-adtgen
    type MyProductType struct{}
    ```
 
-2. **go:generate 指示語を追加する**
+2. go:generate を追加する
    パッケージ内の任意のファイル（通常のビルド対象ファイル）に以下を追記します。
 
    ```go
    //go:generate go tool go-adtgen
    ```
 
-3. **コードを生成する**
+3. コードを生成する
    以下のコマンドを実行すると、各 `//go:build adtgen_generate` ファイルごとに、同じディレクトリへ `<source>_adtgen.go` が生成されます。たとえば `generate_types.go` からは `generate_types_adtgen.go` が生成されます。
 
    ```bash
