@@ -22,8 +22,8 @@ func TestGeneratedSumHelpersAndJSON(t *testing.T) {
 		t.Fatal("value unexpectedly implements SetID(string)")
 	}
 
-	if got, ok := value.AsHoge(); !ok || got.ID != "h-1" || got.Name != "walnut" {
-		t.Fatalf("value.AsHoge() = (%+v, %t), want ID=h-1 Name=walnut", got, ok)
+	if got, ok := AsHogeOrFugaHoge(value); !ok || got.ID != "h-1" || got.Name != "walnut" {
+		t.Fatalf("AsHogeOrFugaHoge(value) = (%+v, %t), want ID=h-1 Name=walnut", got, ok)
 	}
 
 	matched := MatchHogeOrFuga(value,
@@ -32,6 +32,23 @@ func TestGeneratedSumHelpersAndJSON(t *testing.T) {
 	)
 	if matched != "walnut" {
 		t.Fatalf("MatchHogeOrFuga(...) = %q, want %q", matched, "walnut")
+	}
+
+	caseMatched := MatchHogeOrFugaCases(value, HogeOrFugaCases[string]{
+		Hoge: func(h Hoge) string { return "case-" + h.Name },
+		Default: func(v HogeOrFuga) string { return "default" },
+	})
+	if caseMatched != "case-walnut" {
+		t.Fatalf("MatchHogeOrFugaCases(...) = %q, want %q", caseMatched, "case-walnut")
+	}
+
+	visited := false
+	VisitHogeOrFuga(value,
+		func(h Hoge) { visited = true },
+		func(f Fuga) {},
+	)
+	if !visited {
+		t.Fatal("VisitHogeOrFuga did not call whenHoge")
 	}
 
 	label, number := MatchHogeOrFuga2(value,
@@ -54,8 +71,8 @@ func TestGeneratedSumHelpersAndJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UnmarshalHogeOrFuga() error = %v", err)
 	}
-	if got, ok := decoded.AsHoge(); !ok || got.ID != "h-1" || got.Name != "walnut" {
-		t.Fatalf("decoded.AsHoge() = (%+v, %t), want ID=h-1 Name=walnut", got, ok)
+	if got, ok := AsHogeOrFugaHoge(decoded); !ok || got.ID != "h-1" || got.Name != "walnut" {
+		t.Fatalf("AsHogeOrFugaHoge(decoded) = (%+v, %t), want ID=h-1 Name=walnut", got, ok)
 	}
 	if got := decoded.String(); got != "walnut" {
 		t.Fatalf("decoded.String() = %q, want %q", got, "walnut")

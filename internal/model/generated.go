@@ -28,6 +28,7 @@ type GeneratedField struct {
 
 type GeneratedSum struct {
 	GenerateSetters  bool
+	Discriminator    string
 	InterfaceMethods []GeneratedInterfaceMethod
 	Variants         []GeneratedSumVariant
 	CommonFields     []GeneratedCommonField

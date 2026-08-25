@@ -145,6 +145,7 @@ func buildSumGeneratedType(declaration model.ResolvedDeclaration) (model.Generat
 		TypeParameters: append([]string(nil), declaration.Declaration.TypeParameters...),
 		Sum: &model.GeneratedSum{
 			GenerateSetters:  !declaration.Declaration.Options.NoSetter,
+			Discriminator:    declaration.Declaration.Options.Discriminator,
 			InterfaceMethods: buildGeneratedInterfaceMethods(declaration.InterfaceMethods),
 			Variants:         variants,
 			CommonFields:     buildCommonFields(variants, fieldSets, fieldOrders),
@@ -159,10 +160,7 @@ func buildGeneratedInterfaceMethods(methods []model.ResolvedInterfaceMethod) []m
 
 	generated := make([]model.GeneratedInterfaceMethod, 0, len(methods))
 	for _, method := range methods {
-		generated = append(generated, model.GeneratedInterfaceMethod{
-			Name:      method.Name,
-			Signature: method.Signature,
-		})
+		generated = append(generated, model.GeneratedInterfaceMethod(method))
 	}
 	return generated
 }

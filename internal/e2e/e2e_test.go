@@ -77,6 +77,7 @@ func TestGoGenerateSeparatesOutputsPerSourceFile(t *testing.T) {
 	dir := prepareFixture(t, "multi")
 	alphaOutput := filepath.Join(dir, "generate_alpha_adtgen.go")
 	betaOutput := filepath.Join(dir, "generate_beta_adtgen.go")
+	gammaOutput := filepath.Join(dir, "generate_gamma_adtgen.go")
 
 	cmd := exec.Command("go", "generate", ".")
 	cmd.Dir = dir
@@ -92,6 +93,10 @@ func TestGoGenerateSeparatesOutputsPerSourceFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("os.ReadFile(beta) error = %v", err)
 	}
+	gamma, err := os.ReadFile(gammaOutput)
+	if err != nil {
+		t.Fatalf("os.ReadFile(gamma) error = %v", err)
+	}
 
 	if !bytes.Contains(alpha, []byte("type Alpha interface")) {
 		t.Fatalf("alpha output missing Alpha interface:\n%s", alpha)
@@ -104,6 +109,12 @@ func TestGoGenerateSeparatesOutputsPerSourceFile(t *testing.T) {
 	}
 	if !bytes.Contains(beta, []byte("func NewBeta")) {
 		t.Fatalf("beta output missing NewBeta:\n%s", beta)
+	}
+	if !bytes.Contains(gamma, []byte("type Gamma interface")) {
+		t.Fatalf("gamma output missing Gamma interface:\n%s", gamma)
+	}
+	if !bytes.Contains(gamma, []byte("func MarshalGamma")) {
+		t.Fatalf("gamma output missing MarshalGamma:\n%s", gamma)
 	}
 	if bytes.Contains(alpha, []byte("type Beta")) {
 		t.Fatalf("alpha output unexpectedly contains beta declaration:\n%s", alpha)

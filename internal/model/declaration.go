@@ -21,7 +21,8 @@ type Declaration struct {
 }
 
 type DeclarationOptions struct {
-	NoSetter bool
+	NoSetter      bool
+	Discriminator string
 }
 
 type DeclaredInterfaceMethod struct {

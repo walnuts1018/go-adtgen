@@ -9,6 +9,12 @@ import (
 	"github.com/walnuts1018/go-adtgen/internal/model"
 )
 
+const (
+	testHoge = "Hoge"
+	testFuga = "Fuga"
+	testName = "Name"
+)
+
 func TestRenderIncludesHeaderPackageAndTypeDefinition(t *testing.T) {
 	src, err := Render("sample", []model.GeneratedType{
 		{
@@ -106,7 +112,7 @@ func TestRenderIncludesConstructorAndSplitMethods(t *testing.T) {
 			TypeParameters: []string{"T any"},
 			Fields: []model.GeneratedField{
 				{Name: "ID", Type: types.Typ[types.String]},
-				{Name: "Name", Type: types.Typ[types.String]},
+				{Name: testName, Type: types.Typ[types.String]},
 			},
 			Inputs: []model.GeneratedInput{
 				{
@@ -121,7 +127,7 @@ func TestRenderIncludesConstructorAndSplitMethods(t *testing.T) {
 					ParameterName: "b",
 					Type:          bType,
 					MethodName:    "ToB",
-					FieldNames:    []string{"Name"},
+					FieldNames:    []string{testName},
 				},
 			},
 		},
@@ -206,8 +212,8 @@ func TestRenderIncludesSumInterfaceMethodsAndHelpers(t *testing.T) {
 					},
 				},
 				Variants: []model.GeneratedSumVariant{
-					{Expression: "Hoge", Type: hogeType, TypeName: "Hoge"},
-					{Expression: "Fuga", Type: fugaType, TypeName: "Fuga"},
+					{Expression: testHoge, Type: hogeType, TypeName: testHoge},
+					{Expression: testFuga, Type: fugaType, TypeName: testFuga},
 				},
 				CommonFields: []model.GeneratedCommonField{
 					{
@@ -233,17 +239,19 @@ func TestRenderIncludesSumInterfaceMethodsAndHelpers(t *testing.T) {
 		"type HogeOrFuga interface {",
 		"isHogeOrFuga()",
 		"String() string",
-		"AsHoge() (Hoge, bool)",
-		"AsFuga() (Fuga, bool)",
 		"GetID() string",
 		"SetID(string)",
 		"func (*Hoge) isHogeOrFuga() {}",
-		"func (x *Hoge) AsHoge() (Hoge, bool) {",
-		"func (x *Hoge) AsFuga() (Fuga, bool) {",
+		"func (*Fuga) isHogeOrFuga() {}",
+		"func AsHogeOrFugaHoge(v HogeOrFuga) (Hoge, bool) {",
+		"func AsHogeOrFugaFuga(v HogeOrFuga) (Fuga, bool) {",
 		"func (x *Hoge) GetID() string {",
 		"func (x *Hoge) SetID(v string) {",
 		"func MatchHogeOrFuga[R any](v HogeOrFuga, whenHoge func(Hoge) R, whenFuga func(Fuga) R) R {",
 		"func MatchHogeOrFuga2[R1, R2 any](v HogeOrFuga, whenHoge func(Hoge) (R1, R2), whenFuga func(Fuga) (R1, R2)) (R1, R2) {",
+		"type HogeOrFugaCases[R any] struct {",
+		"func MatchHogeOrFugaCases[R any](v HogeOrFuga, cases HogeOrFugaCases[R]) R {",
+		"func VisitHogeOrFuga(v HogeOrFuga, whenHoge func(Hoge), whenFuga func(Fuga)) {",
 		"func UnmarshalHogeOrFuga(data []byte) (HogeOrFuga, error) {",
 		"decoder := json.NewDecoder(bytes.NewReader(data))",
 		"result = &candidate",
@@ -360,9 +368,62 @@ func TestRenderIncludesSumTypeParametersInInterfaceAndHelpers(t *testing.T) {
 	for _, want := range []string{
 		"type Either[T any] interface {",
 		"func (*Left[T]) isEither() {}",
+		"func (*Right[T]) isEither() {}",
+		"func AsEitherLeft[T any](v Either[T]) (Left[T], bool) {",
 		"func MatchEither[T any, R any](v Either[T], whenLeft func(Left[T]) R, whenRight func(Right[T]) R) R {",
 		"func MatchEither2[T any, R1, R2 any](v Either[T], whenLeft func(Left[T]) (R1, R2), whenRight func(Right[T]) (R1, R2)) (R1, R2) {",
+		"type EitherCases[T any, R any] struct {",
+		"func MatchEitherCases[T any, R any](v Either[T], cases EitherCases[T, R]) R {",
+		"func VisitEither[T any](v Either[T], whenLeft func(Left[T]), whenRight func(Right[T])) {",
 		"func UnmarshalEither[T any](data []byte) (Either[T], error) {",
+	} {
+		if !strings.Contains(src, want) {
+			t.Fatalf("RenderForPackage() output missing %q:\n%s", want, src)
+		}
+	}
+}
+
+func TestRenderDiscriminatorMarshalUnmarshal(t *testing.T) {
+	pkg := types.NewPackage("example.com/sample", "sample")
+	hogeType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, testHoge, nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, "ID", types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+	fugaType := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg, testFuga, nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg, testName, types.Typ[types.String], false),
+		}, nil),
+		nil,
+	)
+
+	src, err := RenderForPackage("example.com/sample", "sample", []model.GeneratedType{
+		{
+			Kind: model.DeclarationKindSum,
+			Name: "Event",
+			Sum: &model.GeneratedSum{
+				Discriminator: "type",
+				Variants: []model.GeneratedSumVariant{
+					{Expression: testHoge, Type: hogeType, TypeName: testHoge},
+					{Expression: testFuga, Type: fugaType, TypeName: testFuga},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("RenderForPackage() error = %v", err)
+	}
+
+	for _, want := range []string{
+		"func MarshalEvent(v Event) ([]byte, error) {",
+		"marshalWithEventDiscriminator(\"type\", \"Hoge\", *x)",
+		"func UnmarshalEvent(data []byte) (Event, error) {",
+		"Type string `json:\"type\"`",
+		"case \"Hoge\":",
+		"case \"Fuga\":",
 	} {
 		if !strings.Contains(src, want) {
 			t.Fatalf("RenderForPackage() output missing %q:\n%s", want, src)

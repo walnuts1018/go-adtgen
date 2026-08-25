@@ -215,18 +215,29 @@ func parseDirectiveSpec(kind model.DeclarationKind, spec string) (string, model.
 		if !ok {
 			return "", model.DeclarationOptions{}, fmt.Errorf("malformed directive segment %q", segment)
 		}
-		if key != "options" {
+		switch key {
+		case "options":
+			parsed, err := parseDeclarationOptions(value)
+			if err != nil {
+				return "", model.DeclarationOptions{}, err
+			}
+			options.NoSetter = options.NoSetter || parsed.NoSetter
+		case "discriminator":
+			val := strings.TrimSpace(value)
+			if val == "" {
+				return "", model.DeclarationOptions{}, fmt.Errorf("empty discriminator key")
+			}
+			options.Discriminator = val
+		default:
 			return "", model.DeclarationOptions{}, fmt.Errorf("unknown directive key %q", key)
 		}
-		parsed, err := parseDeclarationOptions(value)
-		if err != nil {
-			return "", model.DeclarationOptions{}, err
-		}
-		options.NoSetter = options.NoSetter || parsed.NoSetter
 	}
 
 	if options.NoSetter && kind != model.DeclarationKindSum {
 		return "", model.DeclarationOptions{}, fmt.Errorf("no-setter option is only supported for sum declarations")
+	}
+	if options.Discriminator != "" && kind != model.DeclarationKindSum {
+		return "", model.DeclarationOptions{}, fmt.Errorf("discriminator option is only supported for sum declarations")
 	}
 
 	return expression, options, nil
@@ -255,7 +266,7 @@ func parseExpressionSegment(segment string) (string, error) {
 
 func parseDeclarationOptions(value string) (model.DeclarationOptions, error) {
 	var options model.DeclarationOptions
-	for _, raw := range strings.Split(value, ",") {
+	for raw := range strings.SplitSeq(value, ",") {
 		option := strings.TrimSpace(raw)
 		if option == "" {
 			return model.DeclarationOptions{}, fmt.Errorf("empty option")

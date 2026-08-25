@@ -228,14 +228,14 @@ func TestBuildGeneratedTypeDisablesSumSettersWithOption(t *testing.T) {
 	decl := model.ResolvedDeclaration{
 		Declaration: model.Declaration{
 			Kind: model.DeclarationKindSum,
-			Name: "HogeOrFuga",
+			Name: generatedTypeHogeOrFuga,
 			Options: model.DeclarationOptions{
 				NoSetter: true,
 			},
 		},
 		Inputs: []model.ResolvedType{
-			{Expr: "Hoge", Type: hogeType, Struct: hogeType.Underlying().(*types.Struct)},
-			{Expr: "Fuga", Type: fugaType, Struct: fugaType.Underlying().(*types.Struct)},
+			{Expr: generatedExprHoge, Type: hogeType, Struct: hogeType.Underlying().(*types.Struct)},
+			{Expr: generatedExprFuga, Type: fugaType, Struct: fugaType.Underlying().(*types.Struct)},
 		},
 	}
 
