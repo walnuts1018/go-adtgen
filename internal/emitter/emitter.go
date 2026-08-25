@@ -57,13 +57,14 @@ func RenderFile(file model.GeneratedFile) (string, error) {
 		buf.WriteString("\n\n")
 	}
 
+	renderedMethods := make(map[string]struct{})
 	for i, generatedType := range file.Generated {
 		if i > 0 {
 			buf.WriteString("\n")
 		}
 
 		if generatedType.Kind == model.DeclarationKindSum && generatedType.Sum != nil {
-			renderSumType(&buf, generatedType, qualifier)
+			renderSumType(&buf, generatedType, qualifier, renderedMethods)
 			continue
 		}
 
@@ -289,7 +290,7 @@ func renderProductType(buf *bytes.Buffer, generatedType model.GeneratedType, qua
 	}
 }
 
-func renderSumType(buf *bytes.Buffer, generatedType model.GeneratedType, qualifier types.Qualifier) {
+func renderSumType(buf *bytes.Buffer, generatedType model.GeneratedType, qualifier types.Qualifier, renderedMethods map[string]struct{}) {
 	buf.WriteString("type ")
 	writeGeneratedTypeName(buf, generatedType, true)
 	buf.WriteString(" interface {\n")
@@ -319,7 +320,7 @@ func renderSumType(buf *bytes.Buffer, generatedType model.GeneratedType, qualifi
 	buf.WriteString("}\n\n")
 
 	for _, variant := range generatedType.Sum.Variants {
-		renderSumVariantMethods(buf, generatedType, variant, qualifier)
+		renderSumVariantMethods(buf, generatedType, variant, qualifier, renderedMethods)
 		buf.WriteString("\n")
 	}
 
@@ -344,7 +345,7 @@ func renderInterfaceMethodSignature(signature *types.Signature, qualifier types.
 	return strings.TrimPrefix(rendered, "func")
 }
 
-func renderSumVariantMethods(buf *bytes.Buffer, generatedType model.GeneratedType, variant model.GeneratedSumVariant, qualifier types.Qualifier) {
+func renderSumVariantMethods(buf *bytes.Buffer, generatedType model.GeneratedType, variant model.GeneratedSumVariant, qualifier types.Qualifier, renderedMethods map[string]struct{}) {
 	valueType := types.TypeString(variant.Type, qualifier)
 	pointerType := "*" + valueType
 
@@ -358,26 +359,34 @@ func renderSumVariantMethods(buf *bytes.Buffer, generatedType model.GeneratedTyp
 	for _, field := range generatedType.Sum.CommonFields {
 		path := selectorPath("x", field.Paths[index])
 
-		buf.WriteString("func (x ")
-		buf.WriteString(pointerType)
-		buf.WriteString(") ")
-		buf.WriteString(field.GetterName)
-		buf.WriteString("() ")
-		buf.WriteString(types.TypeString(field.Type, qualifier))
-		buf.WriteString(" {\n\treturn ")
-		buf.WriteString(path)
-		buf.WriteString("\n}\n\n")
-
-		if generatedType.Sum.GenerateSetters {
+		getterKey := pointerType + "." + field.GetterName
+		if _, exists := renderedMethods[getterKey]; !exists {
+			renderedMethods[getterKey] = struct{}{}
 			buf.WriteString("func (x ")
 			buf.WriteString(pointerType)
 			buf.WriteString(") ")
-			buf.WriteString(field.SetterName)
-			buf.WriteString("(v ")
+			buf.WriteString(field.GetterName)
+			buf.WriteString("() ")
 			buf.WriteString(types.TypeString(field.Type, qualifier))
-			buf.WriteString(") {\n\t")
+			buf.WriteString(" {\n\treturn ")
 			buf.WriteString(path)
-			buf.WriteString(" = v\n}\n\n")
+			buf.WriteString("\n}\n\n")
+		}
+
+		if generatedType.Sum.GenerateSetters {
+			setterKey := pointerType + "." + field.SetterName
+			if _, exists := renderedMethods[setterKey]; !exists {
+				renderedMethods[setterKey] = struct{}{}
+				buf.WriteString("func (x ")
+				buf.WriteString(pointerType)
+				buf.WriteString(") ")
+				buf.WriteString(field.SetterName)
+				buf.WriteString("(v ")
+				buf.WriteString(types.TypeString(field.Type, qualifier))
+				buf.WriteString(") {\n\t")
+				buf.WriteString(path)
+				buf.WriteString(" = v\n}\n\n")
+			}
 		}
 	}
 }
