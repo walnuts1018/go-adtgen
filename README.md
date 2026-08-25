@@ -41,11 +41,11 @@ go get -tool github.com/walnuts1018/go-adtgen
 
 3. **コードの生成**
 
-```bash
-go generate ./...
-```
+   ```bash
+   go generate ./...
+   ```
 
-各 `//go:build adtgen_generate` ファイルから、同一ディレクトリに `<source>_adtgen.go` が生成されます。
+   各 `//go:build adtgen_generate` ファイルから、同一ディレクトリに `<source>_adtgen.go` が生成されます。
 
 ---
 
