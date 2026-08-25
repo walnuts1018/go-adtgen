@@ -12,67 +12,146 @@ import (
 
 type Alpha interface {
 	isAlpha()
-	AsLeft() (Left, bool)
-	AsRight() (Right, bool)
 }
 
 func (*Left) isAlpha() {}
 
-func (x *Left) AsLeft() (Left, bool) {
-	if x == nil {
-		var zero Left
-		return zero, false
-	}
-	return *x, true
-}
-
-func (x *Left) AsRight() (Right, bool) {
-	if x == nil {
-		var zero Right
-		return zero, false
-	}
-	var zero Right
-	return zero, false
-}
-
 func (*Right) isAlpha() {}
 
-func (x *Right) AsLeft() (Left, bool) {
-	if x == nil {
-		var zero Left
-		return zero, false
+func AsAlphaLeft(v Alpha) (Left, bool) {
+	if x, ok := v.(*Left); ok && x != nil {
+		return *x, true
 	}
 	var zero Left
 	return zero, false
 }
 
-func (x *Right) AsRight() (Right, bool) {
-	if x == nil {
-		var zero Right
-		return zero, false
+func AsAlphaRight(v Alpha) (Right, bool) {
+	if x, ok := v.(*Right); ok && x != nil {
+		return *x, true
 	}
-	return *x, true
+	var zero Right
+	return zero, false
 }
 
 func MatchAlpha[R any](v Alpha, whenLeft func(Left) R, whenRight func(Right) R) R {
 	switch x := v.(type) {
 	case *Left:
-		return whenLeft(*x)
+		if x != nil {
+			return whenLeft(*x)
+		}
+		var zero Left
+		return whenLeft(zero)
 	case *Right:
-		return whenRight(*x)
+		if x != nil {
+			return whenRight(*x)
+		}
+		var zero Right
+		return whenRight(zero)
 	default:
-		panic("unreachable generated match for Alpha")
+		panic(fmt.Sprintf("unreachable generated match for %T", v))
 	}
 }
 
 func MatchAlpha2[R1, R2 any](v Alpha, whenLeft func(Left) (R1, R2), whenRight func(Right) (R1, R2)) (R1, R2) {
 	switch x := v.(type) {
 	case *Left:
-		return whenLeft(*x)
+		if x != nil {
+			return whenLeft(*x)
+		}
+		var zero Left
+		return whenLeft(zero)
 	case *Right:
-		return whenRight(*x)
+		if x != nil {
+			return whenRight(*x)
+		}
+		var zero Right
+		return whenRight(zero)
 	default:
-		panic("unreachable generated match for Alpha")
+		panic(fmt.Sprintf("unreachable generated match for %T", v))
+	}
+}
+
+type AlphaCases[R any] struct {
+	Left    func(Left) R
+	Right   func(Right) R
+	Default func(Alpha) R
+}
+
+func MatchAlphaCases[R any](v Alpha, cases AlphaCases[R]) R {
+	switch x := v.(type) {
+	case *Left:
+		if cases.Left != nil {
+			if x != nil {
+				return cases.Left(*x)
+			}
+			var zero Left
+			return cases.Left(zero)
+		}
+	case *Right:
+		if cases.Right != nil {
+			if x != nil {
+				return cases.Right(*x)
+			}
+			var zero Right
+			return cases.Right(zero)
+		}
+	}
+	if cases.Default != nil {
+		return cases.Default(v)
+	}
+	panic(fmt.Sprintf("unhandled %T variant for Alpha", v))
+}
+
+type AlphaCases2[R1, R2 any] struct {
+	Left    func(Left) (R1, R2)
+	Right   func(Right) (R1, R2)
+	Default func(Alpha) (R1, R2)
+}
+
+func MatchAlphaCases2[R1, R2 any](v Alpha, cases AlphaCases2[R1, R2]) (R1, R2) {
+	switch x := v.(type) {
+	case *Left:
+		if cases.Left != nil {
+			if x != nil {
+				return cases.Left(*x)
+			}
+			var zero Left
+			return cases.Left(zero)
+		}
+	case *Right:
+		if cases.Right != nil {
+			if x != nil {
+				return cases.Right(*x)
+			}
+			var zero Right
+			return cases.Right(zero)
+		}
+	}
+	if cases.Default != nil {
+		return cases.Default(v)
+	}
+	panic(fmt.Sprintf("unhandled %T variant for Alpha", v))
+}
+
+func VisitAlpha(v Alpha, whenLeft func(Left), whenRight func(Right)) {
+	switch x := v.(type) {
+	case *Left:
+		if x != nil {
+			whenLeft(*x)
+		} else {
+			var zero Left
+			whenLeft(zero)
+		}
+	case *Right:
+		if x != nil {
+			whenRight(*x)
+		} else {
+			var zero Right
+			whenRight(zero)
+		}
+	default:
+		panic(fmt.Sprintf("unreachable generated visit for %T", v))
 	}
 }
 

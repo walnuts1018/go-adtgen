@@ -13,29 +13,10 @@ import (
 type HogeOrFuga interface {
 	isHogeOrFuga()
 	String() string
-	AsHoge() (Hoge, bool)
-	AsFuga() (Fuga, bool)
 	GetID() string
 }
 
 func (*Hoge) isHogeOrFuga() {}
-
-func (x *Hoge) AsHoge() (Hoge, bool) {
-	if x == nil {
-		var zero Hoge
-		return zero, false
-	}
-	return *x, true
-}
-
-func (x *Hoge) AsFuga() (Fuga, bool) {
-	if x == nil {
-		var zero Fuga
-		return zero, false
-	}
-	var zero Fuga
-	return zero, false
-}
 
 func (x *Hoge) GetID() string {
 	return x.Common.ID
@@ -43,46 +24,144 @@ func (x *Hoge) GetID() string {
 
 func (*Fuga) isHogeOrFuga() {}
 
-func (x *Fuga) AsHoge() (Hoge, bool) {
-	if x == nil {
-		var zero Hoge
-		return zero, false
+func (x *Fuga) GetID() string {
+	return x.Common.ID
+}
+
+func AsHogeOrFugaHoge(v HogeOrFuga) (Hoge, bool) {
+	if x, ok := v.(*Hoge); ok && x != nil {
+		return *x, true
 	}
 	var zero Hoge
 	return zero, false
 }
 
-func (x *Fuga) AsFuga() (Fuga, bool) {
-	if x == nil {
-		var zero Fuga
-		return zero, false
+func AsHogeOrFugaFuga(v HogeOrFuga) (Fuga, bool) {
+	if x, ok := v.(*Fuga); ok && x != nil {
+		return *x, true
 	}
-	return *x, true
-}
-
-func (x *Fuga) GetID() string {
-	return x.Common.ID
+	var zero Fuga
+	return zero, false
 }
 
 func MatchHogeOrFuga[R any](v HogeOrFuga, whenHoge func(Hoge) R, whenFuga func(Fuga) R) R {
 	switch x := v.(type) {
 	case *Hoge:
-		return whenHoge(*x)
+		if x != nil {
+			return whenHoge(*x)
+		}
+		var zero Hoge
+		return whenHoge(zero)
 	case *Fuga:
-		return whenFuga(*x)
+		if x != nil {
+			return whenFuga(*x)
+		}
+		var zero Fuga
+		return whenFuga(zero)
 	default:
-		panic("unreachable generated match for HogeOrFuga")
+		panic(fmt.Sprintf("unreachable generated match for %T", v))
 	}
 }
 
 func MatchHogeOrFuga2[R1, R2 any](v HogeOrFuga, whenHoge func(Hoge) (R1, R2), whenFuga func(Fuga) (R1, R2)) (R1, R2) {
 	switch x := v.(type) {
 	case *Hoge:
-		return whenHoge(*x)
+		if x != nil {
+			return whenHoge(*x)
+		}
+		var zero Hoge
+		return whenHoge(zero)
 	case *Fuga:
-		return whenFuga(*x)
+		if x != nil {
+			return whenFuga(*x)
+		}
+		var zero Fuga
+		return whenFuga(zero)
 	default:
-		panic("unreachable generated match for HogeOrFuga")
+		panic(fmt.Sprintf("unreachable generated match for %T", v))
+	}
+}
+
+type HogeOrFugaCases[R any] struct {
+	Hoge    func(Hoge) R
+	Fuga    func(Fuga) R
+	Default func(HogeOrFuga) R
+}
+
+func MatchHogeOrFugaCases[R any](v HogeOrFuga, cases HogeOrFugaCases[R]) R {
+	switch x := v.(type) {
+	case *Hoge:
+		if cases.Hoge != nil {
+			if x != nil {
+				return cases.Hoge(*x)
+			}
+			var zero Hoge
+			return cases.Hoge(zero)
+		}
+	case *Fuga:
+		if cases.Fuga != nil {
+			if x != nil {
+				return cases.Fuga(*x)
+			}
+			var zero Fuga
+			return cases.Fuga(zero)
+		}
+	}
+	if cases.Default != nil {
+		return cases.Default(v)
+	}
+	panic(fmt.Sprintf("unhandled %T variant for HogeOrFuga", v))
+}
+
+type HogeOrFugaCases2[R1, R2 any] struct {
+	Hoge    func(Hoge) (R1, R2)
+	Fuga    func(Fuga) (R1, R2)
+	Default func(HogeOrFuga) (R1, R2)
+}
+
+func MatchHogeOrFugaCases2[R1, R2 any](v HogeOrFuga, cases HogeOrFugaCases2[R1, R2]) (R1, R2) {
+	switch x := v.(type) {
+	case *Hoge:
+		if cases.Hoge != nil {
+			if x != nil {
+				return cases.Hoge(*x)
+			}
+			var zero Hoge
+			return cases.Hoge(zero)
+		}
+	case *Fuga:
+		if cases.Fuga != nil {
+			if x != nil {
+				return cases.Fuga(*x)
+			}
+			var zero Fuga
+			return cases.Fuga(zero)
+		}
+	}
+	if cases.Default != nil {
+		return cases.Default(v)
+	}
+	panic(fmt.Sprintf("unhandled %T variant for HogeOrFuga", v))
+}
+
+func VisitHogeOrFuga(v HogeOrFuga, whenHoge func(Hoge), whenFuga func(Fuga)) {
+	switch x := v.(type) {
+	case *Hoge:
+		if x != nil {
+			whenHoge(*x)
+		} else {
+			var zero Hoge
+			whenHoge(zero)
+		}
+	case *Fuga:
+		if x != nil {
+			whenFuga(*x)
+		} else {
+			var zero Fuga
+			whenFuga(zero)
+		}
+	default:
+		panic(fmt.Sprintf("unreachable generated visit for %T", v))
 	}
 }
 
